@@ -1,0 +1,182 @@
+#!/usr/bin/python
+
+import click
+import json
+import os
+import time
+
+import log
+     
+def build_spines():
+    pass
+
+
+def build_pod_l1(dc_vars):
+    log.debug('Building JSON files for pod l1 switches')
+    loopback_format = dc_vars["routing"]["global_p2p"].split('::')[0] + ':1:{}:12:1::{}/128'
+    l2_loopback_format = dc_vars["routing"]["global_p2p"].split('::')[0] + ':1:{}:12:2::{}/128'
+    dc_prefix = dc_vars["dc_prefix"]
+    
+    for pod in dc_vars["pods_in_service"]:
+        for switch in range(1, 17):
+            with open('{}/{}-{}/{}-{}-l1-r{}.json'.format(dc_prefix, dc_prefix, pod, dc_prefix, pod, switch), 'w+') as switch_file:
+                switch_vars = {
+                    "hostname": "{}-{}-l1-r{}".format(dc_prefix, pod, switch),
+                    "loopback_ip": loopback_format.format(pod[1:], switch),
+                    "links": [],
+                    "options": [],
+                    "router_id": "{}.{}.{}.{}".format(dc_vars["dcn"], pod[1:], 1, switch),
+                    "ospf_area": "0.0.0.{}".format(pod[1:])
+                }
+                
+                for port_number in range(1, 33):
+                    if port_number > 16:
+                        switch_vars["links"].append({
+                            "port_id": "{}{}".format(dc_vars["interface_format"], port_number),
+                            "description": "TOR facing port"
+                            }
+                        )
+                    else:   
+                        switch_vars["links"].append({
+                            "port_id": "{}{}".format(dc_vars["interface_format"], port_number),
+                            "description": "{} {}{} <> {}-{}-l2-r{} {}{}".format(switch_vars["hostname"], dc_vars["interface_format"], port_number, 
+                                                                              dc_prefix, pod, port_number, dc_vars["interface_format"], switch)
+                            }
+                        )
+                
+                switch_file.write(json.dumps(switch_vars, sort_keys=True, indent=4))
+                log.debug('Populated JSON file for {}'.format(switch_vars["hostname"]))
+        
+        
+def build_def_dc(dc_vars):
+    log.debug('Writing data center variables to {}/def_dc.json'.format(dc_vars["dc_prefix"]))
+    with open(dc_vars["dc_prefix"] + '/def_dc.json', 'w+') as def_dc:
+        def_dc.write(json.dumps(dc_vars, sort_keys=True, indent=4))
+
+
+def mkdirs(dc_vars):
+    log.debug('Making def directories')
+    dc_prefix = dc_vars["dc_prefix"]
+    
+    if not os.path.exists(dc_prefix):
+        log.debug('Created {}'.format(dc_prefix))
+        os.makedirs(dc_prefix)
+        
+    for spine in dc_vars["spines_in_service"]:
+        spine_prefix = dc_prefix + '-' + spine
+        if not os.path.exists(dc_prefix + '/' + spine_prefix):
+            os.makedirs(dc_prefix + '/' + spine_prefix)
+            log.debug('Created {}'.format(spine_prefix))
+            
+            for i in range(1, dc_vars["total_switches_per_spine"] + 1):
+                create_file = open('{}/{}/{}-r{}.json'.format(dc_prefix, spine_prefix, spine_prefix, i), 'w+')
+                log.debug('Created {}/{}/{}-r{}.json'.format(dc_prefix, spine_prefix, spine_prefix, i))
+            
+    for pod in dc_vars["pods_in_service"]:
+        pod_prefix = dc_prefix + '-' + pod
+        if not os.path.exists(dc_prefix + '/' + pod_prefix):
+            log.debug('Created {}'.format(dc_prefix + '/' + pod_prefix))
+            os.makedirs(dc_prefix + '/' + pod_prefix)
+            
+            for i in range(1, (dc_vars["total_switches_per_pod"] / 2) + 1):
+                create_file = open('{}/{}/{}-l2-r{}.json'.format(dc_prefix, pod_prefix, pod_prefix, i), 'w+')
+                log.debug('Created {}/{}/{}-l2-r{}.json'.format(dc_prefix, pod_prefix, pod_prefix, i))
+                
+            for i in range(1, (dc_vars["total_switches_per_pod"] / 2) + 1):
+                create_file = open('{}/{}/{}-l1-r{}.json'.format(dc_prefix, pod_prefix, pod_prefix, i), 'w+')
+                log.debug('Created {}/{}/{}-l1-r{}.json'.format(dc_prefix, pod_prefix, pod_prefix, i))
+    
+    
+@click.command()
+@click.option('-dcn', '--data-center-number', default=1, help='Datacenter number')
+@click.option('-gr', '--global-routing', default='fd35::/16', help='/16 IPv6 routing prefix for global routing')
+@click.option('-if', '--interface-format', default='et', help='Interface names to be used (default: et)')
+@click.option('-sr', '--spine-rows', default=4, help='Total number of spine rows')
+@click.option('-tr', '--tor-routing', default='2001::/16', help='/16 IPv6 routing prefix for TOR subnets')
+@click.option('-tc', '--tor-count', default=256, help='Number of TORs (default: 256)')
+def main(data_center_number, global_routing, interface_format, spine_rows, tor_routing, tor_count):
+    '''
+    \033[1;32mdmoss\033[0m is a CLI tool for building \033[1;32mMOSS\033[0m configurations
+    '''
+    log.debug('Starting dmoss')
+    
+    print '-' * 40
+    print 'Using values:\n  Global routing prefix:{:>15}\n  TOR routing prefix:{:>18}\n  Total spine rows:{:>12}\n  Total TORs:{:>20}' \
+        .format(global_routing, tor_routing, spine_rows, tor_count)
+    print '-' * 40
+    
+    switches_per_pod = 32
+    tor_ups = 4
+    spine_ups = 4
+    core_ups = 4
+    tor_facing_ports_per_pod = (switches_per_pod / 2) * (switches_per_pod / 2)
+    total_pods = tor_count / (tor_facing_ports_per_pod / tor_ups)
+    total_tor_facing_ports = tor_facing_ports_per_pod * total_pods
+    total_switches = switches_per_pod * total_pods
+    pod_internal = tor_facing_ports_per_pod
+    total_pod_internal = pod_internal * total_pods
+    
+    print 'Switch data:'
+    print '  Switches per pod:{:>13}'.format(switches_per_pod)
+    print '  Total pods:{:>18}'.format(total_pods)
+    print '  Total switches:{:>16}'.format(total_switches)
+    print '  Total TORs:{:>20}'.format(tor_count)
+    print '-' * 40
+    print 'Link data:'
+    print '  Uplinks per TOR:{:>13}'.format(tor_ups)
+    print '  Uplinks pod <> spine:{:>8}'.format(spine_ups)
+    print '  Uplinks spine <> core:{:>7}'.format(core_ups)
+    print '  Interal p2p links per pod:{:>5}'.format(pod_internal)
+    print '  TOR facing ports per pod:{:>6}'.format(tor_facing_ports_per_pod)
+    print '  Total internal p2p links:{:>7}'.format(total_pod_internal)
+    print '  Total TOR facing ports:{:>9}'.format(total_tor_facing_ports)
+    print '-' * 40
+
+    time.sleep(5)
+    
+    log.debug('Generating data center variables')
+    dc_vars = {}
+    dc_vars["dcn"] = data_center_number
+    dc_vars["dc_prefix"] = 'moss-d{}'.format(dc_vars["dcn"])
+    dc_vars["interface_format"] = interface_format
+    dc_vars["routing"] = {}
+    dc_vars["routing"]["global_p2p"] = global_routing
+    dc_vars["routing"]["tor_routed"] = tor_routing
+    dc_vars["spines_in_service"] = []
+    
+    for i in range(1, spine_rows + 1):
+        dc_vars["spines_in_service"].append('s{}'.format(i))
+        
+    dc_vars["switchport_density"] = {}
+    dc_vars["switchport_density"]["spine"] = 32
+    dc_vars["switchport_density"]["pod"] = 32
+    dc_vars["switchport_density"]["tor"] = 32
+    dc_vars["total_tors"] = tor_count
+    dc_vars["total_switches"] = total_switches
+    dc_vars["total_switches_per_pod"] = switches_per_pod
+    dc_vars["total_spine_switches"] = (switches_per_pod / 2) * spine_rows
+    dc_vars["total_switches_per_spine"] = switches_per_pod / 2
+    dc_vars["total_spine_rows"] = len(dc_vars["spines_in_service"])
+    dc_vars["total_interfaces"] = (total_switches * switches_per_pod) + \
+                                  (dc_vars["total_spine_switches"] * switches_per_pod) + \
+                                  (tor_count * tor_ups)
+    dc_vars["total_links"] = dc_vars["total_interfaces"] / 2
+    dc_vars["total_pods"] = total_pods
+    dc_vars["pods_in_service"] = []
+    
+    for i in range(1, total_pods + 1):
+        dc_vars["pods_in_service"].append('p{}'.format(i))
+        
+    dc_vars["uplinks"] = {}
+    dc_vars["uplinks"]["serv_to_l1"] = tor_ups * tor_count
+    dc_vars["uplinks"]["l1_to_l2"] = total_pod_internal
+    dc_vars["uplinks"]["l2_to_spine"] = ((switches_per_pod / 2) * spine_ups) * total_pods
+    dc_vars["uplinks"]["spine_to_core"] = ((switches_per_pod / 2) * len(dc_vars["spines_in_service"])) * core_ups
+    
+    dc_prefix = mkdirs(dc_vars)
+    build_def_dc(dc_vars)
+    build_pod_l1(dc_vars)
+    
+    
+if __name__ == '__main__':
+    main()

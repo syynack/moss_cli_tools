@@ -1,0 +1,410 @@
+#!/usr/bin/python
+
+import click
+
+from ops import bgp
+from ops import config
+from ops import ospf
+from ops import ports
+from ops import ipv6
+from ops import lldp
+from ops import mac
+from ops import nd
+from ops import route
+from ops import system
+from ops import traffic
+
+
+class BgpCommands(object):
+    ''' BGP commands '''
+
+    @click.group(help='Display BGP information')
+    def bgp():
+        pass
+    
+    
+    @click.command(help='Show the current BGP table memory usage')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.pass_obj
+    def _memory(switch, json): # show bgp memory
+        if json:
+            bgp.get_bgp_memory_usage_in_json(switch.switch)
+        else:
+            bgp.get_bgp_memory_usage(switch.switch)
+    
+    
+    @click.command(help='Show information about BGP neighbors')
+    @click.option('-n', '--neighbor', default='', help='Show information for a specific peer')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.pass_obj
+    def _neighbors(switch, neighbor, json):
+        if neighbor and json:
+            bgp.get_bgp_specific_neighbor_in_json(switch.switch, neighbor)
+        elif neighbor:
+            bgp.get_bgp_specific_neighbor(switch.switch, neighbor)
+        elif json:
+            bgp.get_bgp_neighbors_in_json(switch.switch)
+        else:
+            bgp.get_bgp_neighbors(switch.switch)
+    
+    
+    @click.command(help='Show summary of BGP peers')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.pass_obj
+    def _summary(switch, json): # show bgp summary
+        if json:
+            bgp.get_bgp_summary_in_json(switch.switch)
+        else:
+            bgp.get_bgp_summary(switch.switch)
+    
+    
+    bgp.add_command(_memory, name='memory')
+    bgp.add_command(_neighbors, name='neighbors')
+    bgp.add_command(_summary, name='summary')
+    
+
+class ConfCommands(object):
+    ''' Config commands '''
+
+    @click.command(help='Show the running configuration')
+    @click.option('-df', '--diff-file', default='', help='Diff the current running config against config file')
+    @click.option('-ds', '--diff-switch', default='', help='Diff -s switch running config against other switch')
+    @click.option('-o', '--output-file', default='', help='Filename to output config to')
+    @click.pass_obj
+    def running_config(switch, diff_file, diff_switch, output_file):
+        if not diff_file and not diff_switch:
+            config.get_running_config(switch.switch, output_file)
+        elif diff_file:
+            config.diff_config_file(switch.switch, diff_file, output_file)
+        elif diff_switch:
+            config.diff_config_switch(switch.switch, diff_switch, output_file)
+
+ 
+class Ipv6Commands(object):
+    ''' IPv6 commands '''
+
+    @click.group(help='Show IPv6 information')
+    def ipv6():
+        pass
+    
+
+    @click.command(help='Show IPv6 info for a port')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-p', '--port', default='', help='Show information for a specific port')
+    @click.pass_obj
+    def _address(switch, json, port):
+        if not port:
+            ipv6.get_ports_info(switch.switch, json)
+        else:
+            ipv6.get_port_info(switch.switch, json, port)
+            
+
+    @click.command(help='Show IPv6 statistics')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.pass_obj
+    def _stats(switch, json):
+        ipv6.get_ports_statistics(switch.switch, json)
+           
+
+    ipv6.add_command(_address, name='address')
+    ipv6.add_command(_stats, name='stats')
+
+
+class LldpCommands(object):
+    ''' LLDP commands '''
+
+    @click.group(help='Show LLDP information')
+    def lldp():
+        pass
+
+
+    @click.command(help='Show detailed LLDP information')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-p', '--port', default='', help='Show detailed LLDP info for a port')
+    @click.pass_obj
+    def _detail(switch, json, port):
+        if not port:
+            lldp.get_ports_detail(switch.switch, json)
+        else:
+            lldp.get_port_detail(switch.switch, json, port)
+
+
+    @click.command(help='Show interfaces participating in LLDP')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.pass_obj
+    def _ports(switch, json):
+        lldp.get_ports(switch.switch, json)
+
+
+    @click.command(help='Show LLDP neighbors')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-p', '--port', default='', help='Show LLDP neighbor for a port')
+    @click.pass_obj
+    def _neighbors(switch, json, port):
+        if not port:
+            lldp.get_neighbors(switch.switch, json)
+        else:
+            lldp.get_port_neighbor(switch.switch, json, port)
+        
+
+    @click.command(help='Show LLDP information')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.pass_obj
+    def _info(switch, json):
+        lldp.get_info(switch.switch, json)
+
+
+    lldp.add_command(_detail, name='detail')
+    lldp.add_command(_ports, name='ports')
+    lldp.add_command(_neighbors, name='neighbors')
+    lldp.add_command(_info, name='info')
+
+
+class MacCommands(object):
+    ''' MAC commands '''
+
+    @click.command(help='Show MAC information')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-p', '--port', default='', help='Show MAC for a specific port')
+    @click.pass_obj
+    def mac(switch, json, port):
+        if not port:
+            mac.get_macs(switch.switch, json)
+        else:
+            mac.get_mac_for_port(switch.switch, json, port)
+            
+          
+class NdCommands(object):
+    ''' NDP IPv6 commands '''
+    
+    @click.command(help='Show IPv6 Neighbor Discovery table')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-s', '--stale', is_flag=True, help='Show only stale neighbors')
+    @click.option('-r', '--reachable', is_flag=True, help='Show only reachable neighbors')
+    @click.pass_obj
+    def table(switch, json, stale, reachable):
+        nd.get_table(switch.switch, json, stale, reachable)
+            
+        
+class PortCommands(object):
+    ''' Port commands '''
+
+    @click.group(help='Show port information')
+    def ports():
+        pass
+
+
+    @click.command(help='Show ports in a brief format')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-p', '--port', default='', help='Show information for a specific port')
+    @click.pass_obj
+    def _brief(switch, json, port):
+        if not port:
+            ports.get_brief(switch.switch, json)
+        else:
+            ports.get_brief_port(switch.switch, json, port)
+
+
+    @click.command(help='Show port descriptions')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-p', '--port', default='', help='Show descriptions for a specific port')
+    @click.pass_obj
+    def _desc(switch, json, port):
+        if not port:
+            ports.get_desc(switch.switch, json)
+        else:
+            ports.get_desc_port(switch.switch, json, port)
+
+
+    @click.command(help='Show detailed port information')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-p', '--port', default='', help='Show detailed port information')
+    @click.pass_obj
+    def _detail(switch, json, port):
+        if not port:
+            ports.get_detail(switch.switch, json)
+        else:
+            ports.get_detail_port(switch.switch, json, port)
+            
+
+    @click.command(help='Show port statistics')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-p', '--port', default='', help='Show statistics for a given port')
+    @click.pass_obj
+    def _stats(switch, json, port):
+        if not port:
+            ports.get_stats(switch.switch, json)
+        else:
+            ports.get_stats_port(switch.switch, json, port)
+        
+
+    ports.add_command(_brief, name='brief')
+    ports.add_command(_desc, name='desc')
+    ports.add_command(_detail, name='detail')
+    ports.add_command(_stats, name='stats')
+
+
+class ReloadConfig(object):
+    ''' Reload config '''
+
+    @click.command(help='Reload config on a MOSS switch')
+    @click.pass_obj
+    def reload_config(switch):
+        click.confirm('Continuing will interrupt traffic forwarding. Are you sure you want to continue?', 
+            abort=True
+        )
+        
+        config.reload(switch.switch)
+
+
+class RouteCommands(object):
+    ''' Route commands '''
+
+    @click.group(help='Show route table information')
+    def route():
+        pass
+
+    
+    @click.command(help='Show BGP routes')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.pass_obj
+    def _bgp(switch, json):
+        if json:
+            route.get_bgp_routes_json(switch.switch)
+        else:
+            route.get_bgp_routes(switch.switch)
+        
+
+    @click.command(help='Show IPv6 route table')
+    @click.option('-f', '--fib', is_flag=True, help='Show only FIB routes')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-p', '--prefix', default='', help='Show routes to specific prefix')
+    @click.pass_obj
+    def _table(switch, fib, json, prefix):
+        if prefix and not fib:
+            if json:
+                route.get_specific_route_in_json(switch.switch, prefix)
+            else:
+                route.get_specific_route(switch.switch)
+        elif fib and not prefix:
+            if json:
+                route.get_forwarding_table_in_json(switch.switch)
+            else:
+                route.get_forwarding_table(switch.switch)
+        elif fib and prefix:
+            if json:
+                route.get_specific_fib_route_in_json(switch.switch, prefix)
+            else:
+                route.get_specific_fib_route(switch.switch, prefix)
+        else:
+            if json:
+                route.get_route_table_in_json(switch.switch)
+            else:
+                route.get_route_table(switch.switch)
+
+
+    @click.command(help='Show RIB and FIB stats')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.pass_obj
+    def _stats(switch, json):
+        if json:
+            route.get_route_stats_in_json(switch.switch)
+        else:
+            route.get_route_stats(switch.switch)
+
+
+    route.add_command(_table, name='table')
+    route.add_command(_bgp, name='bgp')
+    route.add_command(_stats, name='stats')
+
+
+class TrafficCommands(object):
+    ''' Traffic commands '''
+
+    @click.command(help='Show traffic on a switch')
+    @click.option('-m', '--monitor', is_flag=True, help='Monitor traffic on a MOSS switch')
+    @click.option('-p', '--port', default = '', help='Show traffic for a specific port')
+    @click.pass_obj
+    def traffic(switch, monitor, port):
+        if monitor and not port:
+            traffic.watch_traffic(switch.switch)
+        elif port and not monitor:
+            traffic.get_traffic_for_port(switch.switch, port)
+        elif port and monitor:
+            traffic.watch_traffic_for_port(switch.switch, port)
+        else:
+            traffic.get_traffic(switch.switch)
+
+
+class SystemCommands(object):
+    ''' System commands '''
+
+    @click.group(help='Show switch system information')
+    def system():
+        pass
+
+    @click.command(help='Show switch environment information')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.pass_obj
+    def _environment(switch, json):
+        system.get_environment(switch.switch, json)
+
+
+    @click.command(help='Show switch memory statistics')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.pass_obj
+    def _memory(switch, json):
+        system.get_memory(switch.switch, json)
+
+        
+    @click.command(help='Show switch information')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.pass_obj
+    def _info(switch, json):
+        system.get_info(switch.switch, json)
+
+    
+    system.add_command(_environment, name='env')
+    system.add_command(_memory, name='memory')
+    system.add_command(_info, name='info')
+
+
+class Options(object):
+    ''' Hold Show CLI option information '''
+
+    def __init__(self, switch):
+        self.switch = switch
+
+
+# Main body
+@click.group()
+@click.option('-s', '--switch', default='::1', help='Name or IPv6 address of switch (default ::1/128)')
+@click.pass_context
+def main(ctx, switch):
+    '''\b
+        ______________ _____________  ________ 
+        \____    /    |   \______   \/  _____/ 
+          /     /|    |   /|       _/   \  ___ 
+         /     /_|    |  / |    |   \    \_\  \ \b
+        /_______ \______/  |____|_  /\______  /
+                \/                \/        \/     
+                             
+    \033[1;32mzurg\033[0m is a CLI tool for querying \033[1;32mMOSS\033[0m switches
+    '''
+    ctx.obj = Options(switch)
+
+main.add_command(BgpCommands().bgp)
+main.add_command(Ipv6Commands().ipv6)
+main.add_command(LldpCommands().lldp)
+main.add_command(MacCommands().mac, name='mac-table')
+main.add_command(NdCommands().table, name='nd-table')
+main.add_command(PortCommands().ports)
+main.add_command(ReloadConfig().reload_config, name='reload-config')
+main.add_command(RouteCommands().route)
+main.add_command(ConfCommands().running_config, name="running-config")
+main.add_command(SystemCommands().system)
+main.add_command(TrafficCommands().traffic)
+
+
+if __name__ == "__main__":
+    main()
