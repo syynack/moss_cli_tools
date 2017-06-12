@@ -1,0 +1,1 @@
+@reboot /root/moss/switch/moss_quagga/init-quagga.sh

@@ -1,0 +1,47 @@
+username root nopassword
+!
+service integrated-vtysh-config
+!
+password zebra
+enable password zebra
+!
+log syslog
+!
+log commands
+!
+interface ens33
+ ipv6 address fd35:101:12:161::1/64
+!
+interface lo
+ ipv6 address eee3:101:1:16::1/64
+!
+router bgp 1111
+ bgp router-id 1.1.1.16
+ bgp always-compare-med
+ no bgp default ipv4-unicast
+ bgp bestpath as-path multipath-relax
+ timers bgp 10 40
+ neighbor ebgp_leaf1_to_leaf2_pod_fabric peer-group
+ neighbor ebgp_leaf1_to_leaf2_pod_fabric remote-as external
+ neighbor ebgp_leaf1_to_leaf2_pod_fabric bfd 2 400 100
+ neighbor ebgp_leaf1_to_leaf2_pod_fabric advertisement-interval 1
+ neighbor ebgp_leaf1_to_leaf2_pod_fabric timers connect 2
+ neighbor fd35:101:12:161::2 peer-group ebgp_leaf1_to_leaf2_pod_fabric
+ !
+ address-family ipv6 unicast
+  network eee3:101:1:16::/64
+  neighbor ebgp_leaf1_to_leaf2_pod_fabric activate
+  neighbor fd35:101:12:161::2 next-hop-self
+  neighbor fd35:101:12:161::2 default-originate
+  neighbor fd35:101:12:161::2 soft-reconfiguration inbound
+ exit-address-family
+ vnc defaults
+  response-lifetime 3600
+  exit-vnc
+!
+line vty
+!
+
+{% block interfaces %}{% endblock %}
+{% block bgp %}{% endblock %}
+{% block ospf %}{% endblock %}

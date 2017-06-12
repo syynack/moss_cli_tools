@@ -1,0 +1,9 @@
+{% extends "quagga.jinja" %}
+{% block ospf %}
+router ospf6
+  router-id {{ ospf_router_id }}
+{% for interface in interfaces %}
+  interface {{ interface["port_id"] }} area {{ ospf_area }}
+{% endfor %}
+!
+{% endblock %}
