@@ -117,24 +117,25 @@ class DefinitionUtils():
         }
     
     
-    def _define_bgp_peers(self, local_loopback, type):
+    def _define_bgp_peers(self, switch, local_loopback, type):
         local_loopback = local_loopback.split(':')
         global_routing = local_loopback[0]
         datacenter_number = local_loopback[1]
         pod = local_loopback[2]
         
-        bgp_peers = []
+        bgp_peers_list = []
+        bgp_peers_dict = {"leaf_1_peer_loopbacks": [], "spine_peer_loopbacks": []}
         
         for peer in range(1, 17):
             if type == 1:
-                bgp_peers.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 2, peer))
+                bgp_peers_list.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 2, peer))
             elif type == 2:
-                bgp_peers.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 1, peer))
-                bgp_peers.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, peer, 53, peer))
+                bgp_peers_dict["leaf_1_peer_loopbacks"].append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 1, peer))
+                bgp_peers_dict["spine_peer_loopbacks"].append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, peer, 53, switch))
             elif type == 53:
-                bgp_peers.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 2, peer))
+                bgp_peers_list.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 2, peer))
                 
-        return bgp_peers
+        return bgp_peers_list if len(bgp_peers_list) > 0 else bgp_peers_dict
     
     
     def _define_portmap(self, dc_prefix, hostname, interface_format, pod, type, switch):
@@ -173,12 +174,12 @@ class DefinitionUtils():
                         .format(hostname, interface_format, port_number, dc_prefix, pod, port_number, interface_format, switch)
                 else:
                     portmap["description"] = SPINE_DESCRIPTION \
-                        .format(hostname, interface_format, port_number, dc_prefix, switch, port_number - 16, interface_format, pod)
+                        .format(hostname, interface_format, port_number, dc_prefix, port_number - 16, switch, interface_format, pod)
                     
             elif type == 53:
                 if port_number < 17:
                     portmap["description"] = POD_L2_DESCRIPTION \
-                        .format(hostname, interface_format, port_number, dc_prefix, pod, port_number, interface_format, switch + 16)  
+                        .format(hostname, interface_format, port_number, dc_prefix, port_number, switch, interface_format, switch + 16)  
                 else:
                     portmap["description"] = CORE_FACING_DESCRIPTION
                     
@@ -266,7 +267,7 @@ class DefinitionUtils():
                     portmap = self._define_portmap(dc_prefix, temp_switch_vars["hostname"], dc_vars["interface_format"], pod, leaf, switch)
                     temp_switch_vars["interfaces"] = portmap
                     
-                    bgp_peers = self._define_bgp_peers(temp_switch_vars["loopback_ip"], leaf)
+                    bgp_peers = self._define_bgp_peers(temp_switch_vars["bgp_router_id"].split('.')[3], temp_switch_vars["loopback_ip"], leaf)
                     temp_switch_vars["bgp_peers"] = bgp_peers
                                     
                     with open('{}/{}-p{}/{}-p{}-l{}-r{}.json'.format(dc_prefix, dc_prefix, pod, dc_prefix, pod, leaf, switch), 'w+') as switch_file:                            
@@ -285,7 +286,7 @@ class DefinitionUtils():
                 portmap = self._define_portmap(dc_prefix, temp_switch_vars["hostname"], dc_vars["interface_format"], spine, 53, switch)
                 temp_switch_vars["interfaces"] = portmap
                 
-                bgp_peers = self._define_bgp_peers(temp_switch_vars["loopback_ip"], 53)
+                bgp_peers = self._define_bgp_peers(temp_switch_vars["bgp_router_id"].split('.')[3], temp_switch_vars["loopback_ip"], 53)
                 temp_switch_vars["bgp_peers"] = bgp_peers
                 
                 with open('{}/{}-s{}/{}-s{}-r{}.json'.format(dc_prefix, dc_prefix, spine, dc_prefix, spine, switch), 'w+') as switch_file:                            
