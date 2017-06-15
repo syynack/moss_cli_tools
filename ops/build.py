@@ -29,6 +29,8 @@ switch = [{
 import os
 import json
 
+from ops import log
+
 LOOPBACK_FORMAT = '{}:{}:{}:{}::{}' # Global routing prefix, datacenter number, spine/pod number, layer, router number
 LOOPBACK_FORMAT_WITH_MASK = '{}:{}:{}:{}::{}/128'
 TOR_FACING_DESCRIPTION = "TOR facing port"
@@ -61,6 +63,14 @@ class DefinitionUtils():
         dict
         '''
         
+        log.verbose('Starting definition of data center variables')
+        log.verbose('Data center number: {}'.format(data_center_number))
+        log.verbose('Global routing prefix: {}'.format(global_routing))
+        log.verbose('TOR routing prefix: {}'.format(tor_routing))
+        log.verbose('Global interface format: {}'.format(interface_format))
+        log.verbose('Spine rows: {}'.format(spine_rows))
+        log.verbose('Total TOR count: {}'.format(tor_count))
+        
         switches_per_pod = 32
         tor_ups = 4
         spine_ups = 4
@@ -71,6 +81,9 @@ class DefinitionUtils():
         total_switches = switches_per_pod * total_pods
         pod_internal = tor_facing_ports_per_pod
         total_pod_internal = pod_internal * total_pods
+        
+        log.verbose('Finished calculating total variables')
+        log.verbose('Proceeding with calculations for def_dc.json')
         
         dc_vars = {}
         dc_vars["dcn"] = data_center_number
@@ -111,6 +124,8 @@ class DefinitionUtils():
         dc_vars["uplinks"]["spine_to_core"] = ((switches_per_pod / 2) * len(dc_vars["spines_in_service"])) * core_ups
         dc_vars["gen_status"] = 'ok'
         
+        log.verbose('Finished calculations for def_dc.json')
+        
         return {
             "status": "ok" if dc_vars.get('gen_status') else 'fail',
             "dc_vars": dc_vars
@@ -147,7 +162,7 @@ class DefinitionUtils():
                 bgp_peers_dict["spine_peer_loopbacks"].append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, peer, 53, switch))
             elif type == 53:
                 bgp_peers_list.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 2, peer))
-                
+        
         return bgp_peers_list if len(bgp_peers_list) > 0 else bgp_peers_dict
     
     
@@ -213,11 +228,19 @@ class DefinitionUtils():
         dict
         '''
         
+        log.verbose('Starting the creation of the clos file structure')
+        
         dc_prefix = dc_vars["dc_prefix"]
         
+        log.verbose('Checking if directories already exist')
+        
         if not os.path.exists(dc_prefix):
+            log.verbose("Directories don't exist, so making them")
             os.makedirs(dc_prefix)
             
+        log.verbose('Direcotires already exist')
+        log.verbose('Starting to build spine files')
+        
         for spine in dc_vars["spines_in_service"]:
             spine_prefix = dc_prefix + '-s' + str(spine)
             if not os.path.exists(dc_prefix + '/' + spine_prefix):
@@ -225,6 +248,9 @@ class DefinitionUtils():
                 
                 for i in range(1, dc_vars["total_switches_per_spine"] + 1):
                     create_file = open('{}/{}/{}-r{}.json'.format(dc_prefix, spine_prefix, spine_prefix, i), 'w+')
+                    
+        log.verbose('Finished building spine files')
+        log.verbose('Starting to build pod files')
                 
         for pod in dc_vars["pods_in_service"]:
             pod_prefix = dc_prefix + '-p' + str(pod)
@@ -237,8 +263,13 @@ class DefinitionUtils():
                 for i in range(1, (dc_vars["total_switches_per_pod"] / 2) + 1):
                     create_file = open('{}/{}/{}-l1-r{}.json'.format(dc_prefix, pod_prefix, pod_prefix, i), 'w+')
                     
+        log.verbose('Finished building pod files')
+        log.verbose('Proceeding to write to def_dc.json')     
+            
         with open(dc_vars["dc_prefix"] + '/def_dc.json', 'w+') as def_dc:
             def_dc.write(json.dumps(dc_vars, sort_keys=True, indent=4))
+            
+        log.verbose('JSON written to def_dc.json')
                     
         return {
             "status": "ok"
@@ -257,15 +288,22 @@ class DefinitionUtils():
         dict
         '''
         
+        SWITCH_COUNT = 0
+        log.verbose('Starting to populate individual switch files')
+        
         dc_prefix = dc_vars["dc_prefix"]
         data_center_number = dc_vars["dcn"]
+        
+        log.verbose('Defining switch variables')
         
         switch_vars = {
             "bgp_peer_options": [],
             "bgp_peer_ipv6_unicast_options": ['soft-reconfiguration inbound'],
             "options": ['service integrated-vtysh-config', 'log syslog', 'log commands']
         }
-            
+          
+        log.verbose('Populating configuration templates for pod switches')    
+        
         for pod in dc_vars["pods_in_service"]:
             for leaf in range(1, 3):
                 for switch in range(1, 17):
@@ -285,6 +323,11 @@ class DefinitionUtils():
                                     
                     with open('{}/{}-p{}/{}-p{}-l{}-r{}.json'.format(dc_prefix, dc_prefix, pod, dc_prefix, pod, leaf, switch), 'w+') as switch_file:                            
                         switch_file.write(json.dumps(temp_switch_vars, sort_keys=True, indent=4))
+                        
+                    SWITCH_COUNT += 1
+                        
+        log.verbose('Finished populating pod switch configuration templates')
+        log.verbose('Populating configuration templates for spine switches')
                             
         for spine in dc_vars["spines_in_service"]:
             for switch in range(1, 17):
@@ -305,6 +348,19 @@ class DefinitionUtils():
                 with open('{}/{}-s{}/{}-s{}-r{}.json'.format(dc_prefix, dc_prefix, spine, dc_prefix, spine, switch), 'w+') as switch_file:                            
                     switch_file.write(json.dumps(temp_switch_vars, sort_keys=True, indent=4))
                     
+                SWITCH_COUNT += 1
+                    
+        log.verbose('Finished populating spine switch configuration templates')
+        
+        total_size = 0
+        
+        for dirpath, dirnames, filenames in os.walk(dc_prefix):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                total_size += os.path.getsize(fp)
+                    
         return {
-            "status": "ok"
+            "status": "ok",
+            "total_files": SWITCH_COUNT,
+            "space_consumed": total_size
         }
