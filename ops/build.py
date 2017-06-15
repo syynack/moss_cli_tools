@@ -118,6 +118,19 @@ class DefinitionUtils():
     
     
     def _define_bgp_peers(self, switch, local_loopback, type):
+        '''
+        Summary:
+        Builds a list or dictionary of BGP peer loopback addresses depending on the layer
+        
+        Takes:
+        switch: string, bgp_router_id
+        local_loopback: string
+        tyoe: int
+        
+        Returns:
+        dict or list
+        '''
+        
         local_loopback = local_loopback.split(':')
         global_routing = local_loopback[0]
         datacenter_number = local_loopback[1]
