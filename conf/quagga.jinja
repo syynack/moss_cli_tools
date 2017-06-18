@@ -1,0 +1,59 @@
+!
+hostname Router
+username root nopassword
+!
+service integrated-vtysh-config
+!
+password zebra
+enable password zebra
+!
+{% for interface in interfaces %}
+interface {{ interface["port_id"] }}
+ description {{ interface["description"] }}
+ ipv6 address {{ loopback_ip }}
+ ipv6 ospf6 bfd 2 100 200
+ ipv6 ospf6 dead-interval 8
+ ipv6 ospf6 hello-interval 2
+ ipv6 ospf6 network point-to-point
+ ipv6 ospf6 priority 10
+ link-detect
+!
+{% endfor %}
+interface lo
+ ipv6 address {{ loopback_ip }}
+!
+router bgp 1
+ bgp router-id {{ bgp_router_id }}
+ bgp always-compare-med
+ no bgp default ipv4-unicast
+ bgp bestpath as-path multipath-relax
+ timers bgp 10 40
+ neighbor ibgp_int_fabric peer-group
+ neighbor ibgp_int_fabric remote-as internal
+ neighbor ibgp_int_fabric advertisement-interval 1
+ neighbor ibgp_int_fabric timers connect 2
+{% for peer in bgp_peers %}
+ neighbor {{ peer }} peer-group ibgp_int_fabric
+{% endfor %}
+ !
+ address-family ipv6 unicast
+  redistribute ospf6
+  neighbor ibgp_int_fabric activate
+{% for peer in bgp_peers %}
+  neighbor {{ peer }} next-hop-self
+  neighbor {{ peer }} soft-reconfiguration inbound
+{% endfor %}
+ exit-address-family
+ vnc defaults
+  response-lifetime 3600
+  exit-vnc
+!
+router ospf6
+  router-id {{ ospf_router_id }}
+{% for interface in interfaces %}
+  interface {{ interface["port_id"] }} area {{ ospf_area }}
+{% endfor %}
+!
+line vty
+!
+end
