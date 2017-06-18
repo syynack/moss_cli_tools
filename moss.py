@@ -1,8 +1,10 @@
 #!/usr/bin/python
 
 import click
+import sys
 
 from ops import log
+from ops.build import BuildUtils
 from ops.build import DefinitionUtils
 
 
@@ -10,45 +12,72 @@ class BuildCommands():
     
     @click.command(help='Build configuration files a clos fabric')
     @click.pass_obj
-    def clos(template_dir):
-        pass
+    def clos(options):
+        BuildUtils().build_clos(options.template_dir)
     
     
     @click.command(help='Build configuration files for the spine')
+    @click.option('-f', '--full', is_flag=True, help='Build the entire spine')
+    @click.option('-r', '--row-number', default=0, help='Build config for a specific spine row')
     @click.pass_obj
-    def spine(template_dir):
-        pass
-    
-    
-    @click.command(help='Build configuration files for a spine row/s')
-    @click.pass_obj
-    def spine_row(template_dir):
-        pass
+    def spine(options, full, row_number):
+        if full and not row_number:
+            BuildUtils().build_spine(options.template_dir)
+        elif row_number and not full:
+            BuildUtils().build_spine_row(row_number, options.template_dir)
+        else:
+            print 'No valid options passed\n\t--full: Build the entire spine\n\t--row-number: Build specific row\n'
     
     
     @click.command(help='Build configuration files for a pod')
+    @click.option('-f', '--full', is_flag=True, help='Build all pods')
+    @click.option('-p', '--pod-number', default=0, help='Target pod number')
     @click.pass_obj
-    def pod(template_dir):
-        pass
+    def pod(options, full, pod_number):
+        if full and not pod_number:
+            BuildUtils().build_pod(options.template_dir)
+        elif pod_number and not full:
+            BuildUtils().build_specific_pod(pod_number, options.template_dir)
+        else:
+            print 'No valid options passed\n\t--full: Build the entire pod\n\t--pod-number: Build specific pod\n'
+        
     
-    
-    @click.command(help='Build configuration files for a pod leaf 1')
+    @click.command(help='Build leaf 1 configuration files for a pod')
+    @click.option('-f', '--full', is_flag=True, help='Build all pods')
+    @click.option('-p', '--pod-number', default=0, help='Target pod number')
     @click.pass_obj
-    def pod_l1(template_dir):
-        pass
-    
-    
-    @click.command(help='Build configuration files for a pod leaf 1')
+    def leaf1(options, full, pod_number):
+        if full and not pod_number:
+            BuildUtils().build_pod_leaf_1(options.template_dir)
+        elif pod_number and not full:
+            BuildUtils().build_pod_leaf_1_specific_pod(pod_number, options.template_dir)
+        else:
+            print 'No valid options passed\n\t--full: Build the entire pod l1\n\t--pod-number: Build specific pod l1\n'
+            
+            
+    @click.command(help='Build leaf 2 configuration files for a pod')
+    @click.option('-f', '--full', is_flag=True, help='Build all pods')
+    @click.option('-p', '--pod-number', default=0, help='Target pod number')
     @click.pass_obj
-    def pod_l2(template_dir):
-        pass
+    def leaf2(options, full, pod_number):
+        if full and not pod_number:
+            BuildUtils().build_pod_leaf_2(options.template_dir)
+        elif pod_number and not full:
+            BuildUtils().build_pod_leaf_2_specific_pod(pod_number, options.template_dir)
+        else:
+            print 'No valid options passed\n\t--full: Build the entire pod l2\n\t--pod-number: Build specific pod l2\n'
     
     
     @click.command(help='Build configuration files for a switch')
+    @click.option('-H', '--hostname', default='', help='Hostname of the target switch')
     @click.pass_obj
-    def switch(template_dir):
-        pass
-    
+    def switch(options, hostname):
+        if not hostname:
+            print 'A hostname is required with -H, --hostname'
+            sys.exit()
+            
+        BuildUtils().build_switch(hostname, options.template_dir)
+        
     
 class BuildOptions():
     
@@ -82,10 +111,9 @@ def build(ctx, template_dir):
     
 build.add_command(BuildCommands().clos)
 build.add_command(BuildCommands().spine)
-build.add_command(BuildCommands().spine_row, name='spine-row')
 build.add_command(BuildCommands().pod)
-build.add_command(BuildCommands().pod_l1, name='pod-l1')
-build.add_command(BuildCommands().pod_l2, name='pod-l2')
+build.add_command(BuildCommands().leaf1, name='leaf-1')
+build.add_command(BuildCommands().leaf2, name='leaf-2')
 build.add_command(BuildCommands().switch)
 
 

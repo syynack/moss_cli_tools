@@ -1,33 +1,8 @@
 #!/usr/bin/python
-'''
-leaf_template_file = 'leaf_config_template.j2'
-jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader('/etc/moss/switch/config/'),
-                               trim_blocks = True,
-                               lstrip_blocks = True)
-leaf_template = jinja_env.get_template(leaf_template_file)
-ports = subprocess.Popen(["vtysh -c 'show int d' | awk '{print $1}' | sed 's/Interface//g' | grep eth"], shell=True, stdout=subprocess.PIPE)
-stdout, stderr = ports.communicate()
-
-switch = [{
-            'hostname': hostname,
-            'uplink': uplink_prefix,
-            'downlink': downlink_prefix,
-            'rid': rid,
-            'type': type,
-            'ports': port_list
-        }]
-        
-    now = datetime.now()
-    output_filename = '{}-leaf_{}:{}:{}_{}-{}-{}[{}].json'.format(hostname, now.hour, now.minute, now.second, now.day, now.month, now.year, getpass.getuser())
-        
-    with open(output_filename, 'w') as config_json_output:
-        for config_parameter in switch:
-            config_result = leaf_template.render(config_parameter)
-            config_json_output.write(config_result)
-'''
 
 import os
 import json
+import jinja2
 
 from ops import log
 
@@ -41,7 +16,94 @@ POD_L2_DESCRIPTION = "{} {}{} <> {}-p{}-l2-r{} {}{}"
 
 
 class BuildUtils():
-    pass
+    
+    def _render_from_template(self, dir, file):
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        config_dir = '/'.join(current_dir.split('/')[:-1])
+        
+        env = jinja2.Environment(
+            loader = jinja2.FileSystemLoader(config_dir + '/conf/'),
+            trim_blocks = True,
+            lstrip_blocks = True
+        )
+                            
+        template = env.get_template('quagga.jinja')
+        with open(dir + '/' + file, 'r') as json_file:
+            json_data = json.load(json_file)
+        
+            with open(dir + '/Quagga.conf', 'w+') as config_file:
+                config_file_result = template.render(json_data)
+                config_file.write(config_file_result)
+    
+    
+    def build_clos(self, template_dir):
+        for subdir, dir, files in os.walk(template_dir):
+            for file in files:
+                if file != 'def_dc.json':
+                    self._render_from_template(subdir, file)
+    
+    
+    def build_spine(self, template_dir):
+        for subdir, dir, files in os.walk(template_dir):
+            for file in files:
+                if '-s' in file:
+                    self._render_from_template(subdir, file)
+    
+    
+    def build_spine_row(self, row_number, template_dir):
+        for subdir, dir, files in os.walk(template_dir):
+            for file in files:
+                if '-s' + str(row_number) in file:
+                    self._render_from_template(subdir, file)
+    
+    
+    def build_pod(self, template_dir):
+        for subdir, dir, files in os.walk(template_dir):
+            for file in files:
+                if '-p' in file:
+                    self._render_from_template(subdir, file)
+    
+    
+    def build_specific_pod(self, pod_number, template_dir):
+        for subdir, dir, files in os.walk(template_dir):
+            for file in files:
+                if '-p' + str(pod_number) in file:
+                    self._render_from_template(subdir, file)
+    
+    
+    def build_pod_leaf_1(self, template_dir):
+        for subdir, dir, files in os.walk(template_dir):
+            for file in files:
+                if '-l1' in file:
+                    self._render_from_template(subdir, file)
+    
+    
+    def build_pod_leaf_1_specific_pod(self, pod_number, template_dir):
+        for subdir, dir, files in os.walk(template_dir):
+            for file in files:
+                if '-p' + str(pod_number) in file and '-l1' in file:
+                    self._render_from_template(subdir, file)
+    
+    
+    def build_pod_leaf_2(self, template_dir):
+        for subdir, dir, files in os.walk(template_dir):
+            for file in files:
+                if '-l2' in file:
+                    self._render_from_template(subdir, file)
+    
+    
+    def build_pod_leaf_2_specific_pod(self, pod_number, template_dir):
+        for subdir, dir, files in os.walk(template_dir):
+            for file in files:
+                if '-p' + str(pod_number) in file and '-l2' in file:
+                    self._render_from_template(subdir, file)
+    
+    
+    def build_switch(self, hostname, template_dir):
+        for subdir, dir, files in os.walk(template_dir):
+            for file in files:
+                if hostname in file:
+                    self._render_from_template(subdir, file)
 
 
 class DefinitionUtils():
@@ -87,7 +149,7 @@ class DefinitionUtils():
         
         dc_vars = {}
         dc_vars["dcn"] = data_center_number
-        dc_vars["dc_prefix"] = 'moss-d{}'.format(dc_vars["dcn"])
+        dc_vars["dc_prefix"] = 'd{}'.format(dc_vars["dcn"])
         dc_vars["interface_format"] = interface_format
         dc_vars["routing"] = {}
         dc_vars["routing"]["global_p2p"] = global_routing
@@ -151,19 +213,18 @@ class DefinitionUtils():
         datacenter_number = local_loopback[1]
         pod = local_loopback[2]
         
-        bgp_peers_list = []
-        bgp_peers_dict = {"leaf_1_peer_loopbacks": [], "spine_peer_loopbacks": []}
+        bgp_peers = []
         
         for peer in range(1, 17):
             if type == 1:
-                bgp_peers_list.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 2, peer))
+                bgp_peers.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 2, peer))
             elif type == 2:
-                bgp_peers_dict["leaf_1_peer_loopbacks"].append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 1, peer))
-                bgp_peers_dict["spine_peer_loopbacks"].append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, peer, 53, switch))
+                bgp_peers.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 1, peer))
+                bgp_peers.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, peer, 53, switch))
             elif type == 53:
-                bgp_peers_list.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 2, peer))
+                bgp_peers.append(LOOPBACK_FORMAT.format(global_routing, datacenter_number, pod, 2, peer))
         
-        return bgp_peers_list if len(bgp_peers_list) > 0 else bgp_peers_dict
+        return bgp_peers
     
     
     def _define_portmap(self, dc_prefix, hostname, interface_format, pod, type, switch):
@@ -238,7 +299,7 @@ class DefinitionUtils():
             log.verbose("Directories don't exist, so making them")
             os.makedirs(dc_prefix)
             
-        log.verbose('Direcotires already exist')
+        log.verbose('Directories already exist')
         log.verbose('Starting to build spine files')
         
         for spine in dc_vars["spines_in_service"]:
@@ -247,7 +308,10 @@ class DefinitionUtils():
                 os.makedirs(dc_prefix + '/' + spine_prefix)
                 
                 for i in range(1, dc_vars["total_switches_per_spine"] + 1):
-                    create_file = open('{}/{}/{}-r{}.json'.format(dc_prefix, spine_prefix, spine_prefix, i), 'w+')
+                    spine_dir = '{}/{}/{}-r{}'.format(dc_prefix, spine_prefix, spine_prefix, i)
+                    os.makedirs(spine_dir)
+                    with open('{}/{}-r{}.json'.format(spine_dir, spine_prefix, i), 'w+') as create_file:
+                        create_file.close()
                     
         log.verbose('Finished building spine files')
         log.verbose('Starting to build pod files')
@@ -258,10 +322,16 @@ class DefinitionUtils():
                 os.makedirs(dc_prefix + '/' + pod_prefix)
                 
                 for i in range(1, (dc_vars["total_switches_per_pod"] / 2) + 1):
-                    create_file = open('{}/{}/{}-l2-r{}.json'.format(dc_prefix, pod_prefix, pod_prefix, i), 'w+')
+                    leaf_dir = '{}/{}/{}-l2-r{}'.format(dc_prefix, pod_prefix, pod_prefix, i)
+                    os.makedirs(leaf_dir)
+                    with open('{}/{}-l2-r{}.json'.format(leaf_dir, pod_prefix, i), 'w+') as create_file:
+                        create_file.close()
                     
                 for i in range(1, (dc_vars["total_switches_per_pod"] / 2) + 1):
-                    create_file = open('{}/{}/{}-l1-r{}.json'.format(dc_prefix, pod_prefix, pod_prefix, i), 'w+')
+                    leaf_dir = '{}/{}/{}-l1-r{}'.format(dc_prefix, pod_prefix, pod_prefix, i)
+                    os.makedirs(leaf_dir)
+                    with open('{}/{}-l1-r{}.json'.format(leaf_dir, pod_prefix, i), 'w+') as create_file:
+                        create_file.close()
                     
         log.verbose('Finished building pod files')
         log.verbose('Proceeding to write to def_dc.json')     
@@ -321,7 +391,7 @@ class DefinitionUtils():
                     bgp_peers = self._define_bgp_peers(temp_switch_vars["bgp_router_id"].split('.')[3], temp_switch_vars["loopback_ip"], leaf)
                     temp_switch_vars["bgp_peers"] = bgp_peers
                                     
-                    with open('{}/{}-p{}/{}-p{}-l{}-r{}.json'.format(dc_prefix, dc_prefix, pod, dc_prefix, pod, leaf, switch), 'w+') as switch_file:                            
+                    with open('{}/{}-p{}/{}-p{}-l{}-r{}/{}-p{}-l{}-r{}.json'.format(dc_prefix, dc_prefix, pod, dc_prefix, pod, leaf, switch, dc_prefix, pod, leaf, switch), 'w+') as switch_file:                            
                         switch_file.write(json.dumps(temp_switch_vars, sort_keys=True, indent=4))
                         
                     SWITCH_COUNT += 1
@@ -345,7 +415,7 @@ class DefinitionUtils():
                 bgp_peers = self._define_bgp_peers(temp_switch_vars["bgp_router_id"].split('.')[3], temp_switch_vars["loopback_ip"], 53)
                 temp_switch_vars["bgp_peers"] = bgp_peers
                 
-                with open('{}/{}-s{}/{}-s{}-r{}.json'.format(dc_prefix, dc_prefix, spine, dc_prefix, spine, switch), 'w+') as switch_file:                            
+                with open('{}/{}-s{}/{}-s{}-r{}/{}-s{}-r{}.json'.format(dc_prefix, dc_prefix, spine, dc_prefix, spine, switch, dc_prefix, spine, switch), 'w+') as switch_file:                            
                     switch_file.write(json.dumps(temp_switch_vars, sort_keys=True, indent=4))
                     
                 SWITCH_COUNT += 1
