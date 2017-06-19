@@ -6,7 +6,7 @@ import jinja2
 
 from ops import log
 
-LOOPBACK_FORMAT = '{}:{}:{}:{}::{}' # Global routing prefix, datacenter number, spine/pod number, layer, router number
+LOOPBACK_FORMAT = '{}:{}:{}:{}::{}'
 LOOPBACK_FORMAT_WITH_MASK = '{}:{}:{}:{}::{}/128'
 TOR_FACING_DESCRIPTION = "TOR facing port"
 CORE_FACING_DESCRIPTION = "Core facing port"
@@ -147,44 +147,40 @@ class DefinitionUtils():
         log.verbose('Finished calculating total variables')
         log.verbose('Proceeding with calculations for def_dc.json')
         
-        dc_vars = {}
-        dc_vars["dcn"] = data_center_number
-        dc_vars["dc_prefix"] = 'd{}'.format(dc_vars["dcn"])
-        dc_vars["interface_format"] = interface_format
-        dc_vars["routing"] = {}
-        dc_vars["routing"]["global_p2p"] = global_routing
-        dc_vars["routing"]["tor_routed"] = tor_routing
-        dc_vars["spines_in_service"] = []
-        
-        for i in range(1, spine_rows + 1):
-            dc_vars["spines_in_service"].append(i)
-            
-        dc_vars["switchport_density"] = {}
-        dc_vars["switchport_density"]["spine"] = 32
-        dc_vars["switchport_density"]["pod"] = 32
-        dc_vars["switchport_density"]["tor"] = 32
-        dc_vars["total_tors"] = tor_count
-        dc_vars["total_switches"] = total_switches
-        dc_vars["total_switches_per_pod"] = switches_per_pod
-        dc_vars["total_spine_switches"] = (switches_per_pod / 2) * spine_rows
-        dc_vars["total_switches_per_spine"] = switches_per_pod / 2
-        dc_vars["total_spine_rows"] = len(dc_vars["spines_in_service"])
-        dc_vars["total_interfaces"] = (total_switches * switches_per_pod) + \
-                                      (dc_vars["total_spine_switches"] * switches_per_pod) + \
-                                      (tor_count * tor_ups)
-        dc_vars["total_links"] = dc_vars["total_interfaces"] / 2
-        dc_vars["total_pods"] = total_pods
-        dc_vars["pods_in_service"] = []
-        
-        for i in range(1, total_pods + 1):
-            dc_vars["pods_in_service"].append(i)
-            
-        dc_vars["uplinks"] = {}
-        dc_vars["uplinks"]["serv_to_l1"] = tor_ups * tor_count
-        dc_vars["uplinks"]["l1_to_l2"] = total_pod_internal
-        dc_vars["uplinks"]["l2_to_spine"] = ((switches_per_pod / 2) * spine_ups) * total_pods
-        dc_vars["uplinks"]["spine_to_core"] = ((switches_per_pod / 2) * len(dc_vars["spines_in_service"])) * core_ups
-        dc_vars["gen_status"] = 'ok'
+        dc_vars = {
+            "dcn": data_center_number,
+            "dc_prefix": 'd{}'.format(dc_vars["dcn"]),
+            "interface_format": interface_format,
+            "routing": {
+                "global_p2p": global_routing,
+                "tor_routed": tor_routing
+            },
+            "spines_in_service": [i for i in range(1, spine_rows + 1)],
+            "switchport_density": {
+                "spine": 32,
+                "pod": 32,
+                "tor": 32
+            },
+            "total_tors": tor_count,
+            "total_switches": total_switches,
+            "total_switches_per_pod": switches_per_pod,
+            "total_spine_switches": (switches_per_pod / 2) * spine_rows,
+            "total_switches_per_spine": switches_per_pod / 2,
+            "total_spine_rows": len(dc_vars["spines_in_service"]),
+            "total_interfaces": (total_switches * switches_per_pod) + \
+                                (dc_vars["total_spine_switches"] * switches_per_pod) + \
+                                (tor_count * tor_ups)
+            "total_links": dc_vars["total_interfaces"] / 2,
+            "total_pods": total_pods,
+            "pods_in_service": [i for i in range(1, total_pods + 1)],
+            "uplinks": {
+                "tor_to_l1": tor_ups * tor_count,
+                "l1_to_l2": total_pod_internal,
+                "l2_to_spine": ((switches_per_pod / 2) * spine_ups) * total_pods,
+                "spine_to_core": ((switches_per_pod / 2) * len(dc_vars["spines_in_service"])) * core_ups
+            },
+            "gen_status": 'ok'
+        }
         
         log.verbose('Finished calculations for def_dc.json')
         
