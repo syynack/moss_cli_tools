@@ -365,31 +365,33 @@ class DefinitionUtils():
         data_center_number = dc_vars["dcn"]
         
         log.verbose('Defining switch variables')
-        
-        switch_vars = {
-            "bgp_peer_options": [],
-            "bgp_peer_ipv6_unicast_options": ['soft-reconfiguration inbound'],
-            "options": ['service integrated-vtysh-config', 'log syslog', 'log commands']
-        }
-          
         log.verbose('Populating configuration templates for pod switches')    
         
         for pod in dc_vars["pods_in_service"]:
             for leaf in range(1, 3):
                 for switch in range(1, 17):
-                    temp_switch_vars = switch_vars
-                    temp_switch_vars["bgp_router_id"] = "{}.{}.{}.{}".format(data_center_number, pod, leaf, switch)
+                    temp_switch_vars = {}
+                    temp_switch_vars["router_id"] = "{}.{}.{}.{}".format(data_center_number, pod, leaf, switch)
                     temp_switch_vars["hostname"] = "{}-p{}-l{}-r{}".format(dc_prefix, pod, leaf, switch)
                     temp_switch_vars["loopback_ip"] = LOOPBACK_FORMAT_WITH_MASK \
                         .format(dc_vars["routing"]["global_p2p"].split('::')[0], data_center_number, pod, leaf, switch)
-                    temp_switch_vars["ospf_router_id"] = "{}.{}.{}.{}".format(data_center_number, pod, leaf, switch)
-                    temp_switch_vars["ospf_area"] = "0.0.0.{}".format(pod)
+                    temp_switch_vars["ospf_interface_area_mappings"] = []
                     
                     portmap = self._define_portmap(dc_prefix, temp_switch_vars["hostname"], dc_vars["interface_format"], pod, leaf, switch)
                     temp_switch_vars["interfaces"] = portmap
                     
-                    bgp_peers = self._define_bgp_peers(temp_switch_vars["bgp_router_id"].split('.')[3], temp_switch_vars["loopback_ip"], leaf)
+                    bgp_peers = self._define_bgp_peers(temp_switch_vars["router_id"].split('.')[3], temp_switch_vars["loopback_ip"], leaf)
                     temp_switch_vars["bgp_peers"] = bgp_peers
+                    
+                    for interface in temp_switch_vars["interfaces"]:
+                        if int(interface["port_id"].split(dc_vars["interface_format"])[1]) < 17:
+                            if leaf == 1:
+                                temp_switch_vars["ospf_interface_area_mappings"].append({"port_id": interface["port_id"], "area": "0.0.0.{}".format(pod)})
+                            else:
+                                temp_switch_vars["ospf_interface_area_mappings"].append({"port_id": interface["port_id"], "area": "0.0.0.{}".format(pod)})
+                        else:
+                            if leaf == 2:
+                                temp_switch_vars["ospf_interface_area_mappings"].append({"port_id": interface["port_id"], "area": "0.0.0.0"})
                                     
                     with open('{}/{}-p{}/{}-p{}-l{}-r{}/{}-p{}-l{}-r{}.json'.format(dc_prefix, dc_prefix, pod, dc_prefix, pod, leaf, switch, dc_prefix, pod, leaf, switch), 'w+') as switch_file:                            
                         switch_file.write(json.dumps(temp_switch_vars, sort_keys=True, indent=4))
@@ -401,19 +403,23 @@ class DefinitionUtils():
                             
         for spine in dc_vars["spines_in_service"]:
             for switch in range(1, 17):
-                temp_switch_vars = switch_vars
-                temp_switch_vars["bgp_router_id"] = "{}.{}.{}.{}".format(data_center_number, spine, 53, switch)
+                temp_switch_vars = {}
+                temp_switch_vars["router_id"] = "{}.{}.{}.{}".format(data_center_number, spine, 53, switch)
                 temp_switch_vars["hostname"] = "{}-s{}-r{}".format(dc_prefix, spine, switch)
                 temp_switch_vars["loopback_ip"] = LOOPBACK_FORMAT_WITH_MASK \
                     .format(dc_vars["routing"]["global_p2p"].split('::')[0], data_center_number, spine, 53, switch)
-                temp_switch_vars["ospf_router_id"] = "{}.{}.{}.{}".format(data_center_number, spine, 53, switch)
                 temp_switch_vars["ospf_area"] = "0.0.0.0"
+                temp_switch_vars["ospf_interface_area_mappings"] = []
                 
                 portmap = self._define_portmap(dc_prefix, temp_switch_vars["hostname"], dc_vars["interface_format"], spine, 53, switch)
                 temp_switch_vars["interfaces"] = portmap
                 
-                bgp_peers = self._define_bgp_peers(temp_switch_vars["bgp_router_id"].split('.')[3], temp_switch_vars["loopback_ip"], 53)
+                bgp_peers = self._define_bgp_peers(temp_switch_vars["router_id"].split('.')[3], temp_switch_vars["loopback_ip"], 53)
                 temp_switch_vars["bgp_peers"] = bgp_peers
+                
+                for interface in temp_switch_vars["interfaces"]:
+                    if int(interface["port_id"].split(dc_vars["interface_format"])[1]) < 17:
+                        temp_switch_vars["ospf_interface_area_mappings"].append({"port_id": interface["port_id"], "area": "0.0.0.0"})
                 
                 with open('{}/{}-s{}/{}-s{}-r{}/{}-s{}-r{}.json'.format(dc_prefix, dc_prefix, spine, dc_prefix, spine, switch, dc_prefix, spine, switch), 'w+') as switch_file:                            
                     switch_file.write(json.dumps(temp_switch_vars, sort_keys=True, indent=4))
