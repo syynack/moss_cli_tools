@@ -203,9 +203,9 @@ def main(ctx, verbose):
         log.set_verbose()
         
     
-main.add_command(build, name='build-config')
-main.add_command(define, name='def-config')
-main.add_command(deploy, name='deploy-config')
+main.add_command(build, name='build')
+main.add_command(define, name='def')
+main.add_command(deploy, name='deploy')
     
     
 if __name__ == "__main__":
