@@ -23,7 +23,7 @@ interface lo
  ipv6 address {{ loopback_ip }}
 !
 router bgp 1
- bgp router-id {{ bgp_router_id }}
+ bgp router-id {{ router_id }}
  bgp always-compare-med
  no bgp default ipv4-unicast
  bgp bestpath as-path multipath-relax
@@ -49,9 +49,9 @@ router bgp 1
   exit-vnc
 !
 router ospf6
-  router-id {{ ospf_router_id }}
-{% for interface in interfaces %}
-  interface {{ interface["port_id"] }} area {{ ospf_area }}
+  router-id {{ router_id }}
+{% for interface in ospf_interface_area_mappings %}
+  interface {{ interface["port_id"] }} area {{ interface["area"] }}
 {% endfor %}
 !
 line vty
