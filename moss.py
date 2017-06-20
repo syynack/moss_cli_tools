@@ -169,7 +169,7 @@ def define(data_center_number, global_routing, interface_format, spine_rows, tor
         
     log.verbose('Creating data center config definitions returned status {}'.format(config_definition_result["status"]))
     log.verbose('Created {} files'.format(config_definition_result["total_files"]))
-    log.verbose('Consumed {}KB of disk space'.format(config_definition_result["space_consumed"] / 1024))
+    log.verbose('Consumed {} of disk space'.format(config_definition_result["space_consumed"]))
     log.info('moss def-config completed')
         
 
