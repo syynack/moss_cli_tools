@@ -1,15 +1,16 @@
 !
-hostname Router
+hostname {{ hostname }}
 username root nopassword
 !
+ipv6 forwarding
 service integrated-vtysh-config
 !
 password zebra
 enable password zebra
 !
-{% for interface in interfaces %}
-interface {{ interface["port_id"] }}
- description {{ interface["description"] }}
+{% for interface in interfaces|sort %}
+interface {{ interface }}
+ description {{ interfaces[interface]["description"] }}
  ipv6 address {{ loopback_ip }}
  ipv6 ospf6 bfd 2 100 200
  ipv6 ospf6 dead-interval 8
@@ -50,8 +51,10 @@ router bgp 1
 !
 router ospf6
   router-id {{ router_id }}
-{% for interface in ospf_interface_area_mappings %}
-  interface {{ interface["port_id"] }} area {{ interface["area"] }}
+{% for area in ospf_area_interface_mappings %}
+  {% for interface in ospf_area_interface_mappings[area]|sort %}
+  interface {{ interface }} area {{ area }}
+  {% endfor %}
 {% endfor %}
 !
 line vty
