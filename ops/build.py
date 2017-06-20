@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import os
-import json
+import yaml
 import jinja2
 
 from ops import log
@@ -17,7 +17,7 @@ POD_L2_DESCRIPTION = "{} {}{} <> {}-p{}-l2-r{} {}{}"
 
 class BuildUtils():
     
-    def _render_from_template(self, dir, file):
+    def _write_rendered_data_to_file(self, dir, file, template_file, output_file):
         current_dir = os.path.dirname(os.path.realpath(__file__))
         config_dir = '/'.join(current_dir.split('/')[:-1])
         
@@ -26,20 +26,25 @@ class BuildUtils():
             trim_blocks = True,
             lstrip_blocks = True
         )
-                            
-        template = env.get_template('quagga.jinja')
-        with open(dir + '/' + file, 'r') as json_file:
-            json_data = json.load(json_file)
         
-            with open(dir + '/Quagga.conf', 'w+') as config_file:
-                config_file_result = template.render(json_data)
+        template = env.get_template(template_file)
+        with open(dir + '/' + file, 'r') as yaml_file:
+            yaml_data = yaml.load(yaml_file)
+        
+            with open(dir + '/' + output_file, 'w+') as config_file:
+                config_file_result = template.render(yaml_data)
                 config_file.write(config_file_result)
+                
+    
+    def _render_from_template(self, dir, file):
+        self._write_rendered_data_to_file(dir, file, 'quagga.jinja', 'Quagga.conf')
+        self._write_rendered_data_to_file(dir, file, 'network.jinja', 'interfaces')
     
     
     def build_clos(self, template_dir):
         for subdir, dir, files in os.walk(template_dir):
             for file in files:
-                if file != 'def_dc.json':
+                if file != 'def_dc.yaml':
                     self._render_from_template(subdir, file)
     
     
@@ -143,13 +148,14 @@ class DefinitionUtils():
         total_switches = switches_per_pod * total_pods
         pod_internal = tor_facing_ports_per_pod
         total_pod_internal = pod_internal * total_pods
+        dc_prefix = 'd{}'.format(data_center_number)
         
         log.verbose('Finished calculating total variables')
         log.verbose('Proceeding with calculations for def_dc.json')
         
         dc_vars = {
             "dcn": data_center_number,
-            "dc_prefix": 'd{}'.format(dc_vars["dcn"]),
+            "dc_prefix": dc_prefix,
             "interface_format": interface_format,
             "routing": {
                 "global_p2p": global_routing,
@@ -166,18 +172,20 @@ class DefinitionUtils():
             "total_switches_per_pod": switches_per_pod,
             "total_spine_switches": (switches_per_pod / 2) * spine_rows,
             "total_switches_per_spine": switches_per_pod / 2,
-            "total_spine_rows": len(dc_vars["spines_in_service"]),
+            "total_spine_rows": spine_rows,
             "total_interfaces": (total_switches * switches_per_pod) + \
-                                (dc_vars["total_spine_switches"] * switches_per_pod) + \
-                                (tor_count * tor_ups)
-            "total_links": dc_vars["total_interfaces"] / 2,
+                                (((switches_per_pod / 2) * spine_rows) * switches_per_pod) + \
+                                (tor_count * tor_ups),
+            "total_links": ((total_switches * switches_per_pod) + \
+                           (((switches_per_pod / 2) * spine_rows) * switches_per_pod) + \
+                           (tor_count * tor_ups)) / 2,
             "total_pods": total_pods,
             "pods_in_service": [i for i in range(1, total_pods + 1)],
             "uplinks": {
                 "tor_to_l1": tor_ups * tor_count,
                 "l1_to_l2": total_pod_internal,
                 "l2_to_spine": ((switches_per_pod / 2) * spine_ups) * total_pods,
-                "spine_to_core": ((switches_per_pod / 2) * len(dc_vars["spines_in_service"])) * core_ups
+                "spine_to_core": ((switches_per_pod / 2) * spine_rows) * core_ups
             },
             "gen_status": 'ok'
         }
@@ -239,38 +247,37 @@ class DefinitionUtils():
         Returns:
         dict
         '''
-        
-        interfaces_list = []
-               
+          
+        portmap = {}
+            
         for port_number in range(1, 33):
-            portmap = {}
-            portmap["port_id"] = "{}{}".format(interface_format, port_number)
+            port_id = "{}{}".format(interface_format, port_number)
+            portmap[port_id] = {}
+            portmap[port_id]["index"] = port_number
                            
             if type == 1:
                 if port_number > 16:
-                    portmap["description"] = TOR_FACING_DESCRIPTION
+                    portmap[port_id]["description"] = TOR_FACING_DESCRIPTION
                 else:
-                    portmap["description"] = POD_L2_DESCRIPTION \
+                    portmap[port_id]["description"] = POD_L2_DESCRIPTION \
                         .format(hostname, interface_format, port_number, dc_prefix, pod, port_number, interface_format, switch)  
                         
             elif type == 2:
                 if port_number < 17:
-                    portmap["description"] = POD_L1_DESCRIPTION \
+                    portmap[port_id]["description"] = POD_L1_DESCRIPTION \
                         .format(hostname, interface_format, port_number, dc_prefix, pod, port_number, interface_format, switch)
                 else:
-                    portmap["description"] = SPINE_DESCRIPTION \
+                    portmap[port_id]["description"] = SPINE_DESCRIPTION \
                         .format(hostname, interface_format, port_number, dc_prefix, port_number - 16, switch, interface_format, pod)
                     
             elif type == 53:
                 if port_number < 17:
-                    portmap["description"] = POD_L2_DESCRIPTION \
+                    portmap[port_id]["description"] = POD_L2_DESCRIPTION \
                         .format(hostname, interface_format, port_number, dc_prefix, port_number, switch, interface_format, switch + 16)  
                 else:
-                    portmap["description"] = CORE_FACING_DESCRIPTION
-                    
-            interfaces_list.append(portmap)
+                    portmap[port_id]["description"] = CORE_FACING_DESCRIPTION
         
-        return interfaces_list
+        return portmap
     
     
     def create_data_center_file_structure(self, dc_vars):
@@ -306,7 +313,7 @@ class DefinitionUtils():
                 for i in range(1, dc_vars["total_switches_per_spine"] + 1):
                     spine_dir = '{}/{}/{}-r{}'.format(dc_prefix, spine_prefix, spine_prefix, i)
                     os.makedirs(spine_dir)
-                    with open('{}/{}-r{}.json'.format(spine_dir, spine_prefix, i), 'w+') as create_file:
+                    with open('{}/{}-r{}.yaml'.format(spine_dir, spine_prefix, i), 'w+') as create_file:
                         create_file.close()
                     
         log.verbose('Finished building spine files')
@@ -320,22 +327,22 @@ class DefinitionUtils():
                 for i in range(1, (dc_vars["total_switches_per_pod"] / 2) + 1):
                     leaf_dir = '{}/{}/{}-l2-r{}'.format(dc_prefix, pod_prefix, pod_prefix, i)
                     os.makedirs(leaf_dir)
-                    with open('{}/{}-l2-r{}.json'.format(leaf_dir, pod_prefix, i), 'w+') as create_file:
+                    with open('{}/{}-l2-r{}.yaml'.format(leaf_dir, pod_prefix, i), 'w+') as create_file:
                         create_file.close()
                     
                 for i in range(1, (dc_vars["total_switches_per_pod"] / 2) + 1):
                     leaf_dir = '{}/{}/{}-l1-r{}'.format(dc_prefix, pod_prefix, pod_prefix, i)
                     os.makedirs(leaf_dir)
-                    with open('{}/{}-l1-r{}.json'.format(leaf_dir, pod_prefix, i), 'w+') as create_file:
+                    with open('{}/{}-l1-r{}.yaml'.format(leaf_dir, pod_prefix, i), 'w+') as create_file:
                         create_file.close()
                     
         log.verbose('Finished building pod files')
-        log.verbose('Proceeding to write to def_dc.json')     
+        log.verbose('Proceeding to write to def_dc.yaml')     
             
-        with open(dc_vars["dc_prefix"] + '/def_dc.json', 'w+') as def_dc:
-            def_dc.write(json.dumps(dc_vars, sort_keys=True, indent=4))
+        with open(dc_vars["dc_prefix"] + '/def_dc.yaml', 'w+') as def_dc:
+            yaml.dump(dc_vars, def_dc, indent=4, default_flow_style=False)
             
-        log.verbose('JSON written to def_dc.json')
+        log.verbose('YAML written to def_dc.yaml')
                     
         return {
             "status": "ok"
@@ -371,7 +378,7 @@ class DefinitionUtils():
                     temp_switch_vars["hostname"] = "{}-p{}-l{}-r{}".format(dc_prefix, pod, leaf, switch)
                     temp_switch_vars["loopback_ip"] = LOOPBACK_FORMAT_WITH_MASK \
                         .format(dc_vars["routing"]["global_p2p"].split('::')[0], data_center_number, pod, leaf, switch)
-                    temp_switch_vars["ospf_interface_area_mappings"] = []
+                    temp_switch_vars["ospf_area_interface_mappings"] = {"0.0.0.{}".format(pod): [], "0.0.0.0": []}
                     
                     portmap = self._define_portmap(dc_prefix, temp_switch_vars["hostname"], dc_vars["interface_format"], pod, leaf, switch)
                     temp_switch_vars["interfaces"] = portmap
@@ -380,17 +387,14 @@ class DefinitionUtils():
                     temp_switch_vars["bgp_peers"] = bgp_peers
                     
                     for interface in temp_switch_vars["interfaces"]:
-                        if int(interface["port_id"].split(dc_vars["interface_format"])[1]) < 17:
-                            if leaf == 1:
-                                temp_switch_vars["ospf_interface_area_mappings"].append({"port_id": interface["port_id"], "area": "0.0.0.{}".format(pod)})
-                            else:
-                                temp_switch_vars["ospf_interface_area_mappings"].append({"port_id": interface["port_id"], "area": "0.0.0.{}".format(pod)})
+                        if temp_switch_vars["interfaces"][interface].get("index") < 17:
+                            temp_switch_vars["ospf_area_interface_mappings"]["0.0.0.{}".format(pod)].append(interface)
                         else:
                             if leaf == 2:
-                                temp_switch_vars["ospf_interface_area_mappings"].append({"port_id": interface["port_id"], "area": "0.0.0.0"})
+                                temp_switch_vars["ospf_area_interface_mappings"]["0.0.0.0"].append(interface)
                                     
-                    with open('{}/{}-p{}/{}-p{}-l{}-r{}/{}-p{}-l{}-r{}.json'.format(dc_prefix, dc_prefix, pod, dc_prefix, pod, leaf, switch, dc_prefix, pod, leaf, switch), 'w+') as switch_file:                            
-                        switch_file.write(json.dumps(temp_switch_vars, sort_keys=True, indent=4))
+                    with open('{}/{}-p{}/{}-p{}-l{}-r{}/{}-p{}-l{}-r{}.yaml'.format(dc_prefix, dc_prefix, pod, dc_prefix, pod, leaf, switch, dc_prefix, pod, leaf, switch), 'w+') as switch_file:                            
+                        yaml.dump(temp_switch_vars, switch_file, indent=4, default_flow_style=False)
                         
                     SWITCH_COUNT += 1
                         
@@ -404,8 +408,7 @@ class DefinitionUtils():
                 temp_switch_vars["hostname"] = "{}-s{}-r{}".format(dc_prefix, spine, switch)
                 temp_switch_vars["loopback_ip"] = LOOPBACK_FORMAT_WITH_MASK \
                     .format(dc_vars["routing"]["global_p2p"].split('::')[0], data_center_number, spine, 53, switch)
-                temp_switch_vars["ospf_area"] = "0.0.0.0"
-                temp_switch_vars["ospf_interface_area_mappings"] = []
+                temp_switch_vars["ospf_area_interface_mappings"] = {"0.0.0.0": []}
                 
                 portmap = self._define_portmap(dc_prefix, temp_switch_vars["hostname"], dc_vars["interface_format"], spine, 53, switch)
                 temp_switch_vars["interfaces"] = portmap
@@ -414,25 +417,29 @@ class DefinitionUtils():
                 temp_switch_vars["bgp_peers"] = bgp_peers
                 
                 for interface in temp_switch_vars["interfaces"]:
-                    if int(interface["port_id"].split(dc_vars["interface_format"])[1]) < 17:
-                        temp_switch_vars["ospf_interface_area_mappings"].append({"port_id": interface["port_id"], "area": "0.0.0.0"})
+                    if temp_switch_vars["interfaces"][interface]["index"] < 17:
+                        temp_switch_vars["ospf_area_interface_mappings"]["0.0.0.0"].append(interface)
                 
-                with open('{}/{}-s{}/{}-s{}-r{}/{}-s{}-r{}.json'.format(dc_prefix, dc_prefix, spine, dc_prefix, spine, switch, dc_prefix, spine, switch), 'w+') as switch_file:                            
-                    switch_file.write(json.dumps(temp_switch_vars, sort_keys=True, indent=4))
+                with open('{}/{}-s{}/{}-s{}-r{}/{}-s{}-r{}.yaml'.format(dc_prefix, dc_prefix, spine, dc_prefix, spine, switch, dc_prefix, spine, switch), 'w+') as switch_file:                            
+                    yaml.dump(temp_switch_vars, switch_file, indent=4, default_flow_style=False)
                     
                 SWITCH_COUNT += 1
                     
         log.verbose('Finished populating spine switch configuration templates')
         
         total_size = 0
+        size_format = 'KB'
         
         for dirpath, dirnames, filenames in os.walk(dc_prefix):
             for f in filenames:
                 fp = os.path.join(dirpath, f)
                 total_size += os.path.getsize(fp)
+                
+        if total_size > 1024:
+            size_format = 'MB'
                     
         return {
             "status": "ok",
             "total_files": SWITCH_COUNT,
-            "space_consumed": total_size
+            "space_consumed": "{}{}".format(str(total_size), size_format)
         }
