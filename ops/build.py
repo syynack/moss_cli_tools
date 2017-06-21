@@ -1,10 +1,14 @@
 #!/usr/bin/python
 
+import click
 import os
 import yaml
 import jinja2
+import sys
+import time
 
 from ops import log
+from ops.connection import Session
 
 LOOPBACK_FORMAT = '{}:{}:{}:{}::{}'
 LOOPBACK_FORMAT_WITH_MASK = '{}:{}:{}:{}::{}/128'
@@ -443,3 +447,43 @@ class DefinitionUtils():
             "total_files": SWITCH_COUNT,
             "space_consumed": "{}{}".format(str(total_size), size_format)
         }
+    
+    
+class DeploymentUtils():
+    
+    def deploy_config(self, file, target, port):
+        log.info('Preparing to send new configuration to {}:{}'.format(target, port))
+        log.verbose('Removing old configuration from {}'.format(target))
+        
+        session = Session().ssh(target)
+        command = 'rm /etc/quagga/Quagga.conf'
+        result = session.send_command(command)
+        
+        if 'Cannot' in result:
+            log.error('Unable to remove Quagga configuration at {}:/etc/quagga/Quagga.conf'.format(hostname))
+            sys.exit()
+            
+        log.verbose('Successfully removed old configuration from {}'.format(target))
+        log.verbose('Preparing to SCP new Quagga.conf')
+        
+        scp_result = Session().scp_quagga_configuration_file(file, target, port)
+        
+        if scp_result["status"] == 'fail':
+            log.error('Could not SCP file due to: {}'.format(scp_result["reason"]))
+            sys.exit()
+            
+        log.info('Successfully copied Quagga.conf to {}'.format(target))
+        click.confirm('Proceed to restart Quagga on {}?'.format(target), abort=True)
+        
+        result = session.send_command('/etc/init.d/quagga force-reload')
+        
+        log.info('Sleeping for 5 seconds for Quagga to restart')
+        time.sleep(5)
+        
+        result = session.send_command('ps -ef | grep quagga')
+        result = result.splitlines()
+        
+        if len(result) < 2:
+            log.error('Restart of Quagga on {} was unsuccessful!'.format(target))
+            
+        log.info('Quagga on {} was successfully reloaded'.format(target))  

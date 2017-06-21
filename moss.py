@@ -6,6 +6,7 @@ import sys
 from ops import log
 from ops.build import BuildUtils
 from ops.build import DefinitionUtils
+from ops.build import DeploymentUtils
 
 
 class BuildCommands():
@@ -83,10 +84,6 @@ class BuildOptions():
     
     def __init__(self, template_dir):
         self.template_dir = template_dir
-
-
-class DeployCommands():
-    pass
 
 
 @click.group(short_help='Build configuration files')
@@ -171,17 +168,21 @@ def define(data_center_number, global_routing, interface_format, spine_rows, tor
     log.verbose('Created {} files'.format(config_definition_result["total_files"]))
     log.verbose('Consumed {} of disk space'.format(config_definition_result["space_consumed"]))
     log.info('moss def-config completed')
-        
 
-@click.group(short_help='Deploy configuration files to devices')
-def deploy():
+    
+@click.command(short_help='Deploy configuration files to devices')
+@click.option('-f', '--file', default='', help='Path to configuration files e.g. d1-s1-r1/ (default: .)')
+@click.option('-t', '--target', default='localhost', help='Target IP or hostname of switch (default: localhost)')
+@click.option('-p', '--port', default=22, help='Target port (default: 22)')
+def deploy(file, target, port):
     '''
     \b
     \033[1;32mdeploy()\033[0m is used for deploying configuration files
     built using \033[1;32mdefine()\033[0m and \033[1;32mbuild()\033[0m to one, a selection, 
     or many MOSS switches safely and securely.
     '''
-    pass
+    
+    DeploymentUtils().deploy_config(file, target, port)
 
 
 @click.group()
