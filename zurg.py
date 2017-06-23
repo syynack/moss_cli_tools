@@ -12,7 +12,6 @@ from ops import mac
 from ops import nd
 from ops import route
 from ops import system
-from ops import traffic
 
 
 class BgpCommands(object):
@@ -288,7 +287,7 @@ class RouteCommands(object):
             if json:
                 route.get_rib_table_specific_entry_in_json(switch.switch, prefix)
             else:
-                route.get_rib_table_specific_entry(switch.switch)
+                route.get_rib_table_specific_entry(switch.switch, prefix)
         else:
             if json:
                 route.get_rib_table_in_json(switch.switch)
@@ -308,9 +307,9 @@ class RouteCommands(object):
                 route.get_ospf_routes_specific_entry(switch.switch, prefix)
         else:
             if json:
-                route.get_ospf_routes_in_json(switch.switch, prefix)
+                route.get_ospf_routes_in_json(switch.switch)
             else:
-                route.get_ospf_routes(switch.switch, prefix)
+                route.get_ospf_routes(switch.switch)
                 
                 
     @click.command(help='Show IPv6 FIB table')
@@ -320,38 +319,21 @@ class RouteCommands(object):
     def _fib(switch, json, prefix): 
         if prefix:
             if json:
-                route.get_fib_table_in_json(switch.switch)
-            else:
-                route.get_fib_table(switch.switch)
-        elif fib and prefix:
-            if json:
                 route.get_fib_table_specific_entry_in_json(switch.switch, prefix)
             else:
                 route.get_fib_table_specific_entry(switch.switch, prefix)
+        else:
+            if json:
+                route.get_fib_table_in_json(switch.switch)
+            else:
+                route.get_fib_table(switch.switch)
+        
 
 
     route.add_command(_bgp, name='bgp')
     route.add_command(_fib, name='fib')
     route.add_command(_ospf, name='ospf')
     route.add_command(_rib, name='rib')
-
-
-class TrafficCommands(object):
-    ''' Traffic commands '''
-
-    @click.command(help='Show traffic on a switch')
-    @click.option('-m', '--monitor', is_flag=True, help='Monitor traffic on a MOSS switch')
-    @click.option('-p', '--port', default = '', help='Show traffic for a specific port')
-    @click.pass_obj
-    def traffic(switch, monitor, port):
-        if monitor and not port:
-            traffic.watch_traffic(switch.switch)
-        elif port and not monitor:
-            traffic.get_traffic_for_port(switch.switch, port)
-        elif port and monitor:
-            traffic.watch_traffic_for_port(switch.switch, port)
-        else:
-            traffic.get_traffic(switch.switch)
 
 
 class SystemCommands(object):
@@ -422,7 +404,6 @@ main.add_command(ReloadConfig().reload_config, name='reload-config')
 main.add_command(RouteCommands().route)
 main.add_command(ConfCommands().running_config, name="running-config")
 main.add_command(SystemCommands().system)
-main.add_command(TrafficCommands().traffic)
 
 
 if __name__ == "__main__":
