@@ -5,7 +5,7 @@ import click
 from ops import bgp
 from ops import config
 from ops import ospf
-from ops import ports
+from ops import interface
 from ops import ipv6
 from ops import lldp
 from ops import mac
@@ -90,24 +90,15 @@ class Ipv6Commands(object):
 
     @click.command(help='Show IPv6 info for a port')
     @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.option('-p', '--port', default='', help='Show information for a specific port')
     @click.pass_obj
-    def _address(switch, json, port):
-        if not port:
-            ipv6.get_ports_info(switch.switch, json)
+    def _addresses(switch, json):
+        if json:
+            ipv6.get_ipv6_addresses_in_json(switch.switch)
         else:
-            ipv6.get_port_info(switch.switch, json, port)
-            
-
-    @click.command(help='Show IPv6 statistics')
-    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.pass_obj
-    def _stats(switch, json):
-        ipv6.get_ports_statistics(switch.switch, json)
+            ipv6.get_ipv6_addresses(switch.switch)
            
 
-    ipv6.add_command(_address, name='address')
-    ipv6.add_command(_stats, name='stats')
+    ipv6.add_command(_addresses, name='addresses')
 
 
 class LldpCommands(object):
@@ -165,17 +156,23 @@ class MacCommands(object):
 
     @click.command(help='Show MAC information')
     @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.option('-p', '--port', default='', help='Show MAC for a specific port')
     @click.pass_obj
-    def mac(switch, json, port):
-        if not port:
-            mac.get_macs(switch.switch, json)
+    def mac(switch, json):
+        if json:
+            mac.get_interface_mac_addresses_in_json(switch.switch)
         else:
-            mac.get_mac_for_port(switch.switch, json, port)
+            mac.get_interface_mac_addresses(switch.switch)
+            
+            
+class OspfCommands():
+    
+    @click.group(help='Show OSPFv3 information')
+    def ospf():
+        pass
             
           
 class NdCommands(object):
-    ''' NDP IPv6 commands '''
+    ''' ND IPv6 commands '''
     
     @click.command(help='Show IPv6 Neighbor Discovery table')
     @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
@@ -183,65 +180,65 @@ class NdCommands(object):
     @click.option('-r', '--reachable', is_flag=True, help='Show only reachable neighbors')
     @click.pass_obj
     def table(switch, json, stale, reachable):
-        nd.get_table(switch.switch, json, stale, reachable)
+        nd.get_neighbor_discovery_table(switch.switch, json, stale, reachable)
             
         
-class PortCommands(object):
-    ''' Port commands '''
+class InterfaceCommands(object):
+    ''' Interface commands '''
 
-    @click.group(help='Show port information')
-    def ports():
+    @click.group(help='Show interface information')
+    def interfaces():
         pass
 
 
-    @click.command(help='Show ports in a brief format')
+    @click.command(help='Show interfaces in a brief format')
     @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.option('-p', '--port', default='', help='Show information for a specific port')
+    @click.option('-i', '--int', default='', help='Show information for a specific interface')
     @click.pass_obj
-    def _brief(switch, json, port):
-        if not port:
-            ports.get_brief(switch.switch, json)
+    def _brief(switch, json, int):
+        if int and json:
+            interface.get_interfaces_brief_for_specific_interface_in_json(switch.switch, int)
+        elif int:
+            interface.get_interfaces_brief_for_specific_interface(switch.switch, int)
+        elif json:
+            interface.get_interfaces_brief_in_json(switch.switch)
         else:
-            ports.get_brief_port(switch.switch, json, port)
+            interface.get_interfaces_brief(switch.switch)
 
 
-    @click.command(help='Show port descriptions')
+    @click.command(help='Show interfaces descriptions')
     @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.option('-p', '--port', default='', help='Show descriptions for a specific port')
+    @click.option('-i', '--int', default='', help='Show descriptions for a specific interface')
     @click.pass_obj
-    def _desc(switch, json, port):
-        if not port:
-            ports.get_desc(switch.switch, json)
+    def _desc(switch, json, int):
+        if int and json:
+            interface.get_interfaces_descriptions_for_specific_interface_in_json(switch.switch, int)
+        elif int:
+            interface.get_interfaces_descriptions_for_specific_interface(switch.switch, int)
+        elif json:
+            interface.get_interfaces_descriptions_in_json(switch.switch)
         else:
-            ports.get_desc_port(switch.switch, json, port)
+            interface.get_interfaces_descriptions(switch.switch)
 
 
-    @click.command(help='Show detailed port information')
+    @click.command(help='Show interfaces port information')
     @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.option('-p', '--port', default='', help='Show detailed port information')
+    @click.option('-i', '--int', default='', help='Show detailed interface information')
     @click.pass_obj
-    def _detail(switch, json, port):
-        if not port:
-            ports.get_detail(switch.switch, json)
+    def _detail(switch, json, int):
+        if int and json:
+            interface.get_interfaces_detail_for_specific_interface_in_json(switch.switch, int)
+        elif int:
+            interface.get_interfaces_detail_for_specific_interface(switch.switch, int)
+        elif json:
+            interface.get_interfaces_detail_in_json(switch.switch)
         else:
-            ports.get_detail_port(switch.switch, json, port)
-            
-
-    @click.command(help='Show port statistics')
-    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.option('-p', '--port', default='', help='Show statistics for a given port')
-    @click.pass_obj
-    def _stats(switch, json, port):
-        if not port:
-            ports.get_stats(switch.switch, json)
-        else:
-            ports.get_stats_port(switch.switch, json, port)
+            interface.get_interfaces_detail(switch.switch)
         
 
-    ports.add_command(_brief, name='brief')
-    ports.add_command(_desc, name='desc')
-    ports.add_command(_detail, name='detail')
-    ports.add_command(_stats, name='stats')
+    interfaces.add_command(_brief, name='brief')
+    interfaces.add_command(_desc, name='desc')
+    interfaces.add_command(_detail, name='detail')
 
 
 class ReloadConfig(object):
@@ -378,7 +375,7 @@ class Options(object):
 
 # Main body
 @click.group()
-@click.option('-s', '--switch', default='::1', help='Name or IPv6 address of switch (default ::1/128)')
+@click.option('-s', '--switch', default='localhost', help='Name or IPv6 address of switch (default ::1/128)')
 @click.pass_context
 def main(ctx, switch):
     '''\b
@@ -397,8 +394,9 @@ main.add_command(BgpCommands().bgp)
 main.add_command(Ipv6Commands().ipv6)
 main.add_command(LldpCommands().lldp)
 main.add_command(MacCommands().mac, name='mac-table')
+main.add_command(OspfCommands().ospf)
 main.add_command(NdCommands().table, name='nd-table')
-main.add_command(PortCommands().ports)
+main.add_command(InterfaceCommands().interfaces)
 main.add_command(ReloadConfig().reload_config, name='reload-config')
 main.add_command(RouteCommands().route)
 main.add_command(ConfCommands().running_config, name="running-config")

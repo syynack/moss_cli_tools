@@ -45,16 +45,20 @@ def get_environment(switch, json_output):
         cpu = '\nCPU Utilisation\n5 Sec:     {}\n1 Min:     {}\n5 Min:     {}'
         ram = '\nRAM\nTotal KB:  {}\nAvail KB:  {}\nUsed KB:   {}'
         print processes.format(env_json["environment"]["system"]["uptime"], 
-                               env_json["environment"]["system"]["processes"], 
-                               env_json["environment"]["system"]["users"])
+            env_json["environment"]["system"]["processes"], 
+            env_json["environment"]["system"]["users"]
+        )
 
         print cpu.format(env_json["environment"]["cpu"]["usage"]["five_sec"], 
-                         env_json["environment"]["cpu"]["usage"]["min"], 
-                         env_json["environment"]["cpu"]["usage"]["five_min"])
+            env_json["environment"]["cpu"]["usage"]["min"], 
+            env_json["environment"]["cpu"]["usage"]["five_min"]
+        )
 
         print ram.format(env_json["environment"]["ram"]["total"], 
-                         env_json["environment"]["ram"]["in_use"], 
-                         env_json["environment"]["ram"]["free"])
+            env_json["environment"]["ram"]["in_use"], 
+            env_json["environment"]["ram"]["free"]
+        )
+        
         print ''
     
     
@@ -118,6 +122,8 @@ def get_memory(switch, json_output):
         print ''
         print table_format.format('ID', 'Total', 'Avail', 'Used', 'Mount point')
         for disk in memory_json["memory"]:
-            print table_format.format(disk["id"], disk["total"], disk["available"], disk["used"], 
-                                      disk["mount_point"])
+            print table_format.format(disk["id"], disk["total"], disk["available"], 
+                disk["used"], disk["mount_point"]
+        )
+            
         print ''

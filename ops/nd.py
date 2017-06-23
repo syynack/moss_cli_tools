@@ -4,14 +4,6 @@ import sys
 import json
 import re
 
-
-
-''' Look into regex usage
-
-    import re
-    
-'''
-
 from ops.connection import Session
 
 
@@ -45,13 +37,14 @@ def _print_nd_table(nd_table):
     print table_format.format('IPv6 Address', 'MAC address', 'Port ID', 'State')
     
     for neighbor in nd_table["neighbors"]:
-        print table_format.format(neighbor["link_local"], neighbor["mac_address"],
-                                  neighbor["port_id"], neighbor["state"])
+        print table_format.format(
+            neighbor["link_local"], neighbor["mac_address"], neighbor["port_id"], neighbor["state"]
+        )
 
     print ''
         
         
-def get_table(switch, json_output, stale, reachable):
+def get_neighbor_discovery_table(switch, json_output, stale, reachable):
     nd_table_json = _get_nd_table_json(switch, stale, reachable)
     
     if json_output:

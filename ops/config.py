@@ -11,42 +11,45 @@ def _get_config(switch):
 	session = Session().ssh(switch)
 
 	command = 'vtysh -c "show running-config"'
-	log.debug('Retrieving current running config from {}'.format(switch))
+	log.info('Retrieving current running config from {}'.format(switch))
 	running_config = session.send_command(command)
-	log.debug('{} config retrieved'.format(switch))
+	log.info('{} config retrieved'.format(switch))
 
 	return running_config
 
 
 def _send_diff_to_file(switch, remote_switch, diff1, diff2, output_file):
-	log.debug('Writing config diff to file {}'.format(output_file))
-	with open(output_file, 'w') as output_file:
-		for line in diff(diff1.splitlines(), diff2.splitlines(), 
-						 tofile='{} running configuration'.format(switch), fromfile='{} running configuration' \
-						 		.format(remote_switch), lineterm=''):
-			output_file.write(line + '\n')
+    log.info('Writing config diff to file {}'.format(output_file))
+    tofile = '{} running configuration'.format(switch)
+    fromfile = '{} running configuration'.format(remote_switch)
+    
+    with open(output_file, 'w') as output_file:
+        for line in diff(diff1.splitlines(), diff2.splitlines(), tofile=tofile, fromfile=fromfile, lineterm=''):
+            output_file.write(line + '\n')
 
 
 def _print_diff(switch, remote_switch, diff1, diff2):
-	print ''
-	for line in diff(diff1.splitlines(), diff2.splitlines(), 
-		             tofile='{} running configuration'.format(switch), fromfile='{} running configuration' \
-		             		.format(remote_switch), lineterm=''):
+    tofile = '{} running configuration'.format(switch)
+    fromfile = '{} running configuration'.format(remote_switch)
+    
+    print ''
+    
+    for line in diff(diff1.splitlines(), diff2.splitlines(), tofile=tofile, fromfile=fromfile, lineterm=''):
 		if line[0] == '+':
 			print '\033[32m' + line + '\033[0m'
 		elif line[0] == '-':
 			print '\033[31m' + line + '\033[0m'
 		else:
 			print line
-
-	print ''
+            
+    print ''
 
 
 def get_running_config(switch, output_file):
 	running_config = _get_config(switch)
 
 	if output_file:
-		log.debug('Writing running config to file {}'.format(output_file))
+		log.info('Writing running config to file {}'.format(output_file))
 		with open(output_file, 'w') as config_file:
 			config_file.write(running_config)
 	else:
@@ -61,7 +64,7 @@ def diff_config_file(switch, diff_file, output_file):
 	with open(diff_file, 'r') as read_diff_file:
 		file_to_diff = read_diff_file.read()
 
-	log.debug('Diffing {} running configuration against {}'.format(switch, diff_file))
+	log.info('Diffing {} running configuration against {}'.format(switch, diff_file))
 	if output_file:
 		_send_diff_to_file(switch, diff_file, running_config, file_to_diff, output_file)
 	else:
@@ -72,7 +75,7 @@ def diff_config_switch(switch, remote_switch, output_file):
 	local_running_config = _get_config(switch)
 	remote_running_config = _get_config(remote_switch)
 
-	log.debug('Getting config differences between {} and {}'.format(switch, remote_switch))
+	log.info('Getting config differences between {} and {}'.format(switch, remote_switch))
 	if output_file:
 		_send_diff_to_file(switch, remote_switch, local_running_config, remote_running_config, output_file)
 	else:

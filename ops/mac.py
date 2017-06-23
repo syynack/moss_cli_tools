@@ -1,66 +1,49 @@
 #!/usr/bin/python
 
 import json
+import re
 
 from ops.connection import Session
 from ops import log
 
+#
 
-def _get_macs_json(switch, _port):
-    session = Session().snmp(switch)
-    ifDesc = [element.value for element in session.walk('.1.3.6.1.2.1.55.1.5.1.2')]
-    macAddr = [element.value for element in session.walk('.1.3.6.1.2.1.2.2.1.6')]
+def _get_macs_json(switch):
+    session = Session().ssh(switch)
     
-    macs = {"mac_addresses": []}
-    macs_count = 0
-
-    for index, port in enumerate(ifDesc):
-        if _port == 0:
-            macs["mac_addresses"].append({
-                "port_id": port.replace('"', ''),
-                "ll_addr": macAddr[index]
-            })
-        else:
-            if port == _port:
-                macs["mac_addresses"].append({
-                    "port_id": port.replace('"', ''),
-                    "ll_addr": macAddr[index]
-                })
-
-    return macs
+    command = 'ifconfig'
+    output = session.send_command(command)
+    
+    output_dict = []
+    regex = r'(?P<port_id>([^\s]+)).*?\sHWaddr\s(?P<ll_addr>([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2}))'
+    
+    for line in output.splitlines():
+        data = re.search(regex, line)
+        if data is not None:
+            output_dict.append(data.groupdict())
+    
+    return output_dict
 
 
 def _print_macs_table(macs_json):
     table_format = '{:<15} {}'
-    macs_count = 0
 
     print ''
     print table_format.format('Port ID', 'MAC address')
         
-    for mac in macs_json["mac_addresses"]:
-        macs_count += 1
+    for mac in macs_json:
         print table_format.format(mac["port_id"], mac["ll_addr"])
             
     print ''
-    print '  Total MACs: {}'.format(macs_count)
-    print ''
 
 
-def get_macs(switch, json_output):
-    macs_json = _get_macs_json(switch, 0)
+def get_interface_mac_addresses(switch):
+    macs_json = _get_macs_json(switch)
         
-    if json_output:
-        log.debug('JSON formatted')
-        print json.dumps(macs_json, sort_keys=True, indent=4, separators=(',', ': '))
-    else:
-        _print_macs_table(macs_json)
-    
-
-def get_mac_for_port(switch, json_output, _port):
-    macs_json = _get_macs_json(switch, _port)
+    _print_macs_table(macs_json)
         
-    if json_output:
-        log.debug('JSON formatted')
-        print json.dumps(macs_json, sort_keys=True, indent=4, separators=(',', ': '))
-    else:
-        _print_macs_table(macs_json)
+        
+def get_interface_mac_addresses_in_json(switch):
+    macs_json = _get_macs_json(switch)
+
+    print json.dumps(macs_json, sort_keys=True, indent=4, separators=(',', ': '))

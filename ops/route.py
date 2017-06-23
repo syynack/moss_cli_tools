@@ -13,10 +13,7 @@ def _get_ipv6_route_table_json(switch):
 
 
 def _print_route_table(route_table_json):
-    table_format = ''
-    
-    for route in route_table_json:
-        
+    pass
 
 
 def get_bgp_routes_json(switch):
