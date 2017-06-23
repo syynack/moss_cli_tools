@@ -264,55 +264,76 @@ class RouteCommands(object):
     
     @click.command(help='Show BGP routes')
     @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-p', '--prefix', default='', help='Show routes to specific prefix')
     @click.pass_obj
-    def _bgp(switch, json):
-        if json:
-            route.get_bgp_routes_json(switch.switch)
+    def _bgp(switch, json, prefix):
+        if prefix:
+            if json:
+                route.get_bgp_routes_specific_entry_in_json(switch.switch, prefix)
+            else:
+                route.get_bgp_routes_specific_entry(switch.switch, prefix)
         else:
-            route.get_bgp_routes(switch.switch)
+            if json:
+                route.get_bgp_routes_in_json(switch.switch, prefix)
+            else:
+                route.get_bgp_routes(switch.switch, prefix)
         
 
-    @click.command(help='Show IPv6 route table')
-    @click.option('-f', '--fib', is_flag=True, help='Show only FIB routes')
+    @click.command(help='Show IPv6 RIB table')
     @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
     @click.option('-p', '--prefix', default='', help='Show routes to specific prefix')
     @click.pass_obj
-    def _table(switch, fib, json, prefix):
-        if prefix and not fib:
+    def _rib(switch, json, prefix):
+        if prefix:
             if json:
-                route.get_specific_route_in_json(switch.switch, prefix)
+                route.get_rib_table_specific_entry_in_json(switch.switch, prefix)
             else:
-                route.get_specific_route(switch.switch)
-        elif fib and not prefix:
+                route.get_rib_table_specific_entry(switch.switch)
+        else:
             if json:
-                route.get_forwarding_table_in_json(switch.switch)
+                route.get_rib_table_in_json(switch.switch)
             else:
-                route.get_forwarding_table(switch.switch)
+                route.get_rib_table(switch.switch)
+                
+                
+    @click.command(help='Show OSPF routes')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-p', '--prefix', default='', help='Show routes to specific prefix')
+    @click.pass_obj
+    def _ospf(switch, json, prefix):
+        if prefix:
+            if json:
+                route.get_ospf_routes_specific_entry_in_json(switch.switch, prefix)
+            else:
+                route.get_ospf_routes_specific_entry(switch.switch, prefix)
+        else:
+            if json:
+                route.get_ospf_routes_in_json(switch.switch, prefix)
+            else:
+                route.get_ospf_routes(switch.switch, prefix)
+                
+                
+    @click.command(help='Show IPv6 FIB table')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-p', '--prefix', default='', help='Show routes to specific prefix')
+    @click.pass_obj
+    def _fib(switch, json, prefix): 
+        if prefix:
+            if json:
+                route.get_fib_table_in_json(switch.switch)
+            else:
+                route.get_fib_table(switch.switch)
         elif fib and prefix:
             if json:
-                route.get_specific_fib_route_in_json(switch.switch, prefix)
+                route.get_fib_table_specific_entry_in_json(switch.switch, prefix)
             else:
-                route.get_specific_fib_route(switch.switch, prefix)
-        else:
-            if json:
-                route.get_route_table_in_json(switch.switch)
-            else:
-                route.get_route_table(switch.switch)
+                route.get_fib_table_specific_entry(switch.switch, prefix)
 
 
-    @click.command(help='Show RIB and FIB stats')
-    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.pass_obj
-    def _stats(switch, json):
-        if json:
-            route.get_route_stats_in_json(switch.switch)
-        else:
-            route.get_route_stats(switch.switch)
-
-
-    route.add_command(_table, name='table')
     route.add_command(_bgp, name='bgp')
-    route.add_command(_stats, name='stats')
+    route.add_command(_fib, name='fib')
+    route.add_command(_ospf, name='ospf')
+    route.add_command(_rib, name='rib')
 
 
 class TrafficCommands(object):
