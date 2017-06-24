@@ -179,7 +179,20 @@ class NdCommands(object):
     @click.option('-r', '--reachable', is_flag=True, help='Show only reachable neighbors')
     @click.pass_obj
     def table(switch, json, stale, reachable):
-        nd.get_neighbor_discovery_table(switch.switch, json, stale, reachable)
+        if json:
+            if stale:
+                nd.get_neighbor_discovery_table_stale_entries_in_json(switch.switch)
+            elif reachable:
+                nd.get_neighbor_discovery_table_reachable_entries_in_json(switch.switch)
+            else:
+                nd.get_neighbor_discovery_table_entries_in_json(switch.switch)   
+        else:
+            if stale:
+                nd.get_neighbor_discovery_table_stale_entries(switch.switch)
+            elif reachable:
+                nd.get_neighbor_discovery_table_reachable_entries(switch.switch)
+            else:
+                nd.get_neighbor_discovery_table_entries(switch.switch)   
             
         
 class InterfaceCommands(object):
