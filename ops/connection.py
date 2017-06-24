@@ -76,22 +76,3 @@ class Session(object):
             "status": "fail",
             "reason": err
         }
-    
-    
-def V6Format(address):
-    address = address.split('2.16.')
-    address = address[1].split('.')
-    address = address[0:16]
-    
-    for index, byte in enumerate(address):
-        if str(byte) == '0':
-            address[index] = '00'
-        else:
-            if len(str(byte)) == 1:
-                address[index] = '0' + format(int(byte), 'x') 
-            else:
-                address[index] = format(int(byte), 'x')
-    
-    address = ''.join(address)
-    address = ':'.join([address[i:i+4] for i in range(0, len(address), 4)])
-    return str(ipaddress.ip_address(unicode(address)))

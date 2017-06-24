@@ -39,8 +39,6 @@ def _get_interfaces_detail_json(switch):
     
     output_dict = {}
     regexes = ['Link encap:(?P<link_encapsulation>[^\s]+)', 
-               '\s\sHWaddr\s(?P<ll_addr>([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2}))',
-               'inet6 addr:\s(?P<inet6_addr>[^\s]+)',
                'MTU:(?P<mtu>[^\s]+)',
                'RX\spackets:(?P<rx_ok>[^\s]+)\serrors:(?P<rx_err>[^\s]+)\sdropped:(?P<rx_drp>[^\s]+)\soverruns:(?P<rx_ovr>[^\s]+)\sframe:(?P<rx_frm>[^\s]+)',
                'TX\spackets:(?P<tx_ok>[^\s]+)\serrors:(?P<tx_err>[^\s]+)\sdropped:(?P<tx_drp>[^\s]+)\soverruns:(?P<tx_ovr>[^\s]+)\scarrier:(?P<tx_car>[^\s]+)',

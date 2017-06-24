@@ -85,17 +85,15 @@ def diff_config_switch(switch, remote_switch, output_file):
 def reload(switch):
     session = Session().ssh(switch)
     reload_output = session.send_command('/etc/init.d/quagga force-reload')
-    print 'Command sent. Waiting 5 seconds to check status'
-    time.sleep(5)
-    confirmation_output = session.send_command('/etc/init.d/quagga status')
     
-    if 'active (running)' not in confirmation_output:
-        print 'WARNING! Zurg failed to reload Quagga.conf!'
+    log.info('Command sent. Waiting 5 seconds to check status')
+    time.sleep(5)
+    confirmation_output = session.send_command('ps -ef | grep quagga')
+    
+    result = confirmation_output.splitlines()
+        
+    if len(result) < 2:
+        log.error('Restart of Quagga on {} was unsuccessful!'.format(target))
         sys.exit()
     
-    print 'Quagga.conf reload successful.'
-    
-    for line in confirmation_output.splitlines():
-        if 'Active' in line and 'since' in line:
-            print line
-            
+    log.info('Quagga.conf reload successful')           

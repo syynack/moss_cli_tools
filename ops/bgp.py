@@ -36,7 +36,7 @@ def _get_bgp_neighbors_json(switch):
     command = 'vtysh -c "show bgp neighbors json"'
     bgp_neighbors_json = session.send_command(command)
     
-    return json.loads(bgp_neighbors_json)
+    return json.load(bgp_neighbors_json)
 
 
 def _print_bgp_neighbor(bgp_neighbors_json, peer):
@@ -97,12 +97,12 @@ def get_bgp_neighbors(switch):
 
 
 def get_bgp_summary_in_json(switch):
-    bgp_summary_json = json.loads(_get_bgp_summary_json(switch))
+    bgp_summary_json = json.load(_get_bgp_summary_json(switch))
     print json.dumps(bgp_summary_json, sort_keys=True, indent=4, separators=(',', ': '))
     
 
 def get_bgp_summary(switch):
-    bgp_summary_json = json.loads(_get_bgp_summary_json(switch))
+    bgp_summary_json = json.load(_get_bgp_summary_json(switch))
     
     print ''
     print '  Local Router ID: {}'.format(bgp_summary_json.get('routerId'))

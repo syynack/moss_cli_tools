@@ -38,12 +38,12 @@ def _print_macs_table(macs_json):
 
 
 def get_interface_mac_addresses(switch):
-    macs_json = _get_macs_json(switch)
+    output = _get_macs_json(switch)
         
-    _print_macs_table(macs_json)
+    _print_macs_table(output)
         
         
 def get_interface_mac_addresses_in_json(switch):
-    macs_json = _get_macs_json(switch)
+    output = _get_macs_json(switch)
 
-    print json.dumps(macs_json, sort_keys=True, indent=4, separators=(',', ': '))
+    print json.dumps(output, sort_keys=True, indent=4, separators=(',', ': '))
