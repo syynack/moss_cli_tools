@@ -108,46 +108,24 @@ class LldpCommands(object):
         pass
 
 
-    @click.command(help='Show detailed LLDP information')
-    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.option('-p', '--port', default='', help='Show detailed LLDP info for a port')
-    @click.pass_obj
-    def _detail(switch, json, port):
-        if not port:
-            lldp.get_ports_detail(switch.switch, json)
-        else:
-            lldp.get_port_detail(switch.switch, json, port)
-
-
-    @click.command(help='Show interfaces participating in LLDP')
-    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.pass_obj
-    def _ports(switch, json):
-        lldp.get_ports(switch.switch, json)
-
-
     @click.command(help='Show LLDP neighbors')
     @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.option('-p', '--port', default='', help='Show LLDP neighbor for a port')
+    @click.option('-i', '--int', default='', help='Show LLDP neighbor for an interface')
     @click.pass_obj
-    def _neighbors(switch, json, port):
-        if not port:
-            lldp.get_neighbors(switch.switch, json)
+    def _neighbors(switch, json, int):
+        if json:
+            if int:
+                lldp.get_lldp_neighbors_for_specific_interface_in_json(switch.switch, int)
+            else:
+                lldp.get_lldp_neighbors_in_json(switch.switch)
         else:
-            lldp.get_port_neighbor(switch.switch, json, port)
-        
-
-    @click.command(help='Show LLDP information')
-    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.pass_obj
-    def _info(switch, json):
-        lldp.get_info(switch.switch, json)
+            if int:
+                lldp.get_lldp_neighbors_for_specific_interface(switch.switch, int)
+            else:
+                lldp.get_lldp_nighbors(switch.switch)
 
 
-    lldp.add_command(_detail, name='detail')
-    lldp.add_command(_ports, name='ports')
     lldp.add_command(_neighbors, name='neighbors')
-    lldp.add_command(_info, name='info')
 
 
 class MacCommands(object):

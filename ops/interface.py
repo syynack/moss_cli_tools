@@ -60,7 +60,6 @@ def _get_interfaces_detail_json(switch):
             if match:
                 output_dict[port_id].update(match.groupdict())
         
-            
     return output_dict
 
 
