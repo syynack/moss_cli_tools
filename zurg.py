@@ -343,29 +343,27 @@ class SystemCommands(object):
     def system():
         pass
 
-    @click.command(help='Show switch environment information')
+    @click.command(help='Show switch uptime')
     @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
     @click.pass_obj
-    def _environment(switch, json):
-        system.get_environment(switch.switch, json)
+    def _uptime(switch, json):
+        if json:
+            system.get_system_uptime_in_json(switch.switch)
+        else:
+            system.get_system_uptime(switch.switch)
 
 
-    @click.command(help='Show switch memory statistics')
-    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.pass_obj
-    def _memory(switch, json):
-        system.get_memory(switch.switch, json)
-
-        
     @click.command(help='Show switch information')
     @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
     @click.pass_obj
     def _info(switch, json):
-        system.get_info(switch.switch, json)
+        if json:
+            system.get_system_info_in_json(switch.switch)
+        else:
+            system.get_system_info(switch.switch)
 
-    
-    system.add_command(_environment, name='env')
-    system.add_command(_memory, name='memory')
+        
+    system.add_command(_uptime, name='uptime')
     system.add_command(_info, name='info')
 
 

@@ -1,129 +1,77 @@
 #!/usr/bin/python
 
 import json
+import re
 
 from ops.connection import Session
 
-def get_environment(switch, json_output):
-    session = Session().snmp(switch)
+def _get_system_uptime_json(switch):
+    session = Session().ssh(switch)
     
-    sysuptime = session.get('.1.3.6.1.2.1.1.3.0')
-    sysproc = [element.value for element in session.walk('.1.3.6.1.2.1.25.1.6')]
-    sysusers = [element.value for element in session.walk('.1.3.6.1.2.1.25.1.5')]
-    cpufivesec = session.get('.1.3.6.1.4.1.2021.10.1.3.1')
-    cpumin = session.get('.1.3.6.1.4.1.2021.10.1.3.2')
-    cpufivemin = session.get('.1.3.6.1.4.1.2021.10.1.3.3')
-    ramtotal = session.get('.1.3.6.1.4.1.2021.4.5.0')
-    raminuse = session.get('.1.3.6.1.4.1.2021.4.6.0')
-    ramfree = int(ramtotal.value[:-3]) - int(raminuse.value[:-3])
+    command = 'uptime'
+    output = session.send_command(command)
+    
+    output_dict = {}
+    regex = r'\s(?P<current_time>[0-9]{2}:[0-9]{2}:[0-9]{2})\sup\s(?P<uptime>[^\s]+\s[^,]+).*(?P<users>[0-9])\suser.*load\saverage:\s(?P<avg_1_min_load>[0-100].[0-9]{2}),\s(?P<avg_5_min_load>[0-100].[0-9]{2}),\s(?P<avg_15_min_load>[0-100].[0-9]{2})'
+    
+    for line in output.splitlines():
+        data = re.search(regex, line)
+        if data is not None:
+            output_dict.update(data.groupdict())
+    
+    return output_dict
 
-    env_json = {"environment": {
-                    "system": {
-                        "uptime": sysuptime.value,
-                        "processes": sysproc[0],
-                        "users": sysusers[0]
-                    }, 
-                    "cpu": {
-                        "usage": {
-                            "five_sec": cpufivesec.value,
-                            "min": cpumin.value,
-                            "five_min": cpufivesec.value
-                        }
-                    }, 
-                    "ram": {
-                        "total": ramtotal.value[:-3],
-                        "in_use": raminuse.value[:-3],
-                        "free": str(ramfree)
-                    }
-                }
-            }
 
-    if json_output:
-        print json.dumps(env_json, sort_keys=True, indent=4, separators=(',', ': '))
-    else:
-        processes = '\nProcesses\nUptime: {}\nProcesses: {}\nUsers: {}'
-        cpu = '\nCPU Utilisation\n5 Sec:     {}\n1 Min:     {}\n5 Min:     {}'
-        ram = '\nRAM\nTotal KB:  {}\nAvail KB:  {}\nUsed KB:   {}'
-        print processes.format(env_json["environment"]["system"]["uptime"], 
-            env_json["environment"]["system"]["processes"], 
-            env_json["environment"]["system"]["users"]
-        )
+def _get_system_info_json(switch):
+    session = Session().ssh(switch)
+    
+    command = 'uname -s -n -r -m -p -i -o'
+    output = session.send_command(command)
+    
+    output = output.split()
+    
+    output_dict = {
+        "kernel_name": output[0],
+        "hostname": output[1],
+        "kernel_release": output[2],
+        "architecture": output[3],
+        "processor": output[4],
+        "hardware_platform": output[5],
+        "operating_system": output[6]
+    }
+    
+    return output_dict
 
-        print cpu.format(env_json["environment"]["cpu"]["usage"]["five_sec"], 
-            env_json["environment"]["cpu"]["usage"]["min"], 
-            env_json["environment"]["cpu"]["usage"]["five_min"]
-        )
 
-        print ram.format(env_json["environment"]["ram"]["total"], 
-            env_json["environment"]["ram"]["in_use"], 
-            env_json["environment"]["ram"]["free"]
-        )
-        
-        print ''
+def get_system_uptime_in_json(switch):
+    output = _get_system_uptime_json(switch)
     
-    
-def get_info(switch, json_output):
-    session = Session().snmp(switch)
-    
-    # System
-    sysdescription = session.get('.1.3.6.1.2.1.1.1.0')
-    syshostname = session.get('.1.3.6.1.2.1.1.5.0')
-    sysuptime = session.get('.1.3.6.1.2.1.1.3.0')
-    sysdev = [element.value for element in session.walk('1.3.6.1.2.1.25.3.2.1.3')]
-    iftype = [element.value for element in session.walk('.1.3.6.1.2.1.2.2.1.2')]
+    print json.dumps(output, sort_keys=True, indent=4, separators=(',', ': '))
 
-    info_json = {"info": {
-                    "description": sysdescription.value,
-                    "hostname": syshostname.value,
-                    "uptime": sysuptime.value,
-                    "devices": [],
-                }
-            }
-    for device in sysdev:
-        info_json["info"]["devices"].append(device)
 
-    if json_output:
-        print json.dumps(info_json, sort_keys=True, indent=4, separators=(',', ': '))
-    else:
-        system = '\nHostname: {}\nDescription: {}\nUptime: {} Min\n'
-        print system.format(info_json["info"]["hostname"], info_json["info"]["description"], 
-                            info_json["info"]["uptime"])
-        print 'System devices: '
-        for device in info_json["info"]["devices"]:
-            print device
-        print ''
+def get_system_uptime(switch):
+    output = _get_system_uptime_json(switch)
     
-    
-def get_memory(switch, json_output):
-    session = Session().snmp(switch)
-    
-    dskid = [element.value for element in session.walk('.1.3.6.1.4.1.2021.9.1.3')]
-    dsktotal = [element.value for element in session.walk('.1.3.6.1.4.1.2021.9.1.6')]
-    dskavail = [element.value for element in session.walk('.1.3.6.1.4.1.2021.9.1.7')]
-    dskused = [element.value for element in session.walk('.1.3.6.1.4.1.2021.9.1.8')]
-    dskpath = [element.value for element in session.walk('1.3.6.1.4.1.2021.9.1.2')]
+    print ''
+    print 'Uptime: {}'.format(output['uptime'])
+    print ''
 
-    memory_json = {"memory": []}
-    for index, diskid in enumerate(dskid):
-        memory_json["memory"].append(
-            {
-                "id": diskid,
-                "total": str(int(dsktotal[index]) / 1000),
-                "available": str(int(dskavail[index]) / 1000),
-                "used": str(int(dskused[index]) / 1000),
-                "mount_point": dskpath[index]
-            }
-        )
+
+def get_system_info_in_json(switch):
+    output = _get_system_info_json(switch)
     
-    if json_output:
-        print json.dumps(memory_json, sort_keys=True, indent=4, separators=(',', ': '))
-    else:
-        table_format = '{:18} {:15} {:15} {:15} {}'
-        print ''
-        print table_format.format('ID', 'Total', 'Avail', 'Used', 'Mount point')
-        for disk in memory_json["memory"]:
-            print table_format.format(disk["id"], disk["total"], disk["available"], 
-                disk["used"], disk["mount_point"]
-        )
-            
-        print ''
+    print json.dumps(output, sort_keys=True, indent=4, separators=(',', ': '))
+
+
+def get_system_info(switch):
+    output = _get_system_info_json(switch)
+    
+    table_format = '{:<15} {:<15} {:<10} {:<12} {:<16} {:<10} {}'
+    
+    print ''
+    print table_format.format('Hostname', 'Architecture', 'OS', 'Kernel Name', 'Kernel Release', 'Processor', 'Hardware Platform')
+    print table_format.format(output['hostname'], output['architecture'], output['operating_system'], output['kernel_name'],
+        output['kernel_release'], output['processor'], output['hardware_platform']
+    )
+    
+    print ''
