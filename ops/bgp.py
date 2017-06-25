@@ -15,17 +15,19 @@ def _get_bgp_memory_json(switch):
     
     for line in bgp_memory_output.splitlines():
         line = line.split(',')
-        table_details = line[0].split()
-        memory_usage = line[1].split()
         
-        if memory_usage[3] == 'KiB':
-            memory_usage[2] = int(memory_usage[2]) * 1024
-        
-        bgp_memory_json["tables"].append({
-            "table_id": '_'.join(table_details[1:]).lower().replace('-', '_'),
-            "total": table_details[0],
-            "mem_usage": str(memory_usage[2])
-        })
+        if len(line) > 1:
+            table_details = line[0].split()
+            memory_usage = line[1].split()
+            
+            if memory_usage[3] == 'KiB':
+                memory_usage[2] = int(memory_usage[2]) * 1024
+            
+            bgp_memory_json["tables"].append({
+                "table_id": '_'.join(table_details[1:]).lower().replace('-', '_'),
+                "total": table_details[0],
+                "mem_usage": str(memory_usage[2])
+            })
         
     return bgp_memory_json
 
@@ -71,9 +73,13 @@ def get_bgp_memory_usage(switch):
 
 def get_bgp_specific_neighbor_in_json(switch, neighbor):
     bgp_neighbors_json = _get_bgp_neighbors_json(switch)
+    input = {}
+    
     for peer in bgp_neighbors_json:
         if peer == neighbor:
-            print json.dumps(bgp_neighbors_json[peer], sort_keys=True, indent=4, separators=(',', ': '))
+            input[neighbor] = bgp_neighbors_json[peer]
+            
+    print json.dumps(input, sort_keys=True, indent=4, separators=(',', ': '))
     
 
 def get_bgp_specific_neighbor(switch, neighbor):
@@ -97,12 +103,12 @@ def get_bgp_neighbors(switch):
 
 
 def get_bgp_summary_in_json(switch):
-    bgp_summary_json = json.load(_get_bgp_summary_json(switch))
+    bgp_summary_json = json.loads(_get_bgp_summary_json(switch))
     print json.dumps(bgp_summary_json, sort_keys=True, indent=4, separators=(',', ': '))
     
 
 def get_bgp_summary(switch):
-    bgp_summary_json = json.load(_get_bgp_summary_json(switch))
+    bgp_summary_json = json.loads(_get_bgp_summary_json(switch))
     
     print ''
     print '  Local Router ID: {}'.format(bgp_summary_json.get('routerId'))

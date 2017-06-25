@@ -320,9 +320,9 @@ class RouteCommands(object):
                 route.get_bgp_routes_specific_entry(switch.switch, prefix)
         else:
             if json:
-                route.get_bgp_routes_in_json(switch.switch, prefix)
+                route.get_bgp_routes_in_json(switch.switch)
             else:
-                route.get_bgp_routes(switch.switch, prefix)
+                route.get_bgp_routes(switch.switch)
         
 
     @click.command(help='Show IPv6 RIB table')
@@ -357,28 +357,9 @@ class RouteCommands(object):
                 route.get_ospf_routes_in_json(switch.switch)
             else:
                 route.get_ospf_routes(switch.switch)
-                
-                
-    @click.command(help='Show IPv6 FIB table')
-    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
-    @click.option('-p', '--prefix', default='', help='Show routes to specific prefix')
-    @click.pass_obj
-    def _fib(switch, json, prefix): 
-        if prefix:
-            if json:
-                route.get_fib_table_specific_entry_in_json(switch.switch, prefix)
-            else:
-                route.get_fib_table_specific_entry(switch.switch, prefix)
-        else:
-            if json:
-                route.get_fib_table_in_json(switch.switch)
-            else:
-                route.get_fib_table(switch.switch)
         
-
-
+        
     route.add_command(_bgp, name='bgp')
-    route.add_command(_fib, name='fib')
     route.add_command(_ospf, name='ospf')
     route.add_command(_rib, name='rib')
 

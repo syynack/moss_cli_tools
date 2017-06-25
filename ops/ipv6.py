@@ -33,7 +33,7 @@ def _print_ipv6_table(ipv6_json):
     table_format = '{:<15} {}'
     
     print ''
-    print table_format.format('Port ID', 'Address')
+    print table_format.format('Port ID', 'Addresses')
 
     for interface in ipv6_json:
         print table_format.format(interface, ipv6_json[interface][0])

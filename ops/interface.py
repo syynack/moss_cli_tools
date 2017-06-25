@@ -21,12 +21,13 @@ def _get_interfaces_json(switch):
     for line in output.splitlines():
         line = line.split()
         
-        output_dict[line[0]] = {
-            "admin_status": line[1],
-            "line_status": line[2],
-            "description": "" if len(line) < 4 else ' '.join(line[3:]),
-            "ipv6_addr": "" if line[0] not in ipv6_addr_dict else ipv6_addr_dict[line[0]][0]
-        }
+        if len(line) > 0:
+            output_dict[line[0]] = {
+                "admin_status": line[1],
+                "line_status": line[2],
+                "description": "" if len(line) < 4 else ' '.join(line[3:]),
+                "ipv6_addr": "" if line[0] not in ipv6_addr_dict else ipv6_addr_dict[line[0]][0]
+            }
         
     return output_dict
 
@@ -193,7 +194,7 @@ def get_interfaces_descriptions_in_json(switch):
 
 
 def get_interfaces_descriptions(switch):
-    output = _get_interfaces_detail_json(switch)
+    output = _get_interfaces_json(switch)
     _print_interfaces_descriptions(output)
 
 

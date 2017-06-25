@@ -27,10 +27,6 @@ Neighbor {} address is {} with remote AS {} and is a member of {}
   Next hop is {}
   Nexthop global is {}
   Nexthop local is {}
-  
-  BFD detect multiplier is {}
-  BFD minimum RX interval is {}
-  BFD minimum TX interval is {}
 '''
 
 BGP_NEIGHBOR_NOT_ESTABLISHED_TEMPLATE = '''
@@ -68,9 +64,7 @@ def get_bgp_neighbor_established(bgp_neighbors_json, peer):
         bgp_neighbors_json[peer]["messageStats"]["totalSent"], bgp_neighbors_json[peer]["messageStats"]["totalRecv"],
         bgp_neighbors_json[peer]["hostLocal"], bgp_neighbors_json[peer]["portLocal"],
         bgp_neighbors_json[peer]["hostForeign"], bgp_neighbors_json[peer]["portForeign"],
-        bgp_neighbors_json[peer]["nexthop"], bgp_neighbors_json[peer]["nexthopGlobal"], bgp_neighbors_json[peer]["nexthopLocal"],
-        bgp_neighbors_json[peer]["peerBfdInfo"]["detectMultiplier"], bgp_neighbors_json[peer]["peerBfdInfo"]["rxMinInterval"],
-        bgp_neighbors_json[peer]["peerBfdInfo"]["txMinInterval"]
+        bgp_neighbors_json[peer]["nexthop"], bgp_neighbors_json[peer]["nexthopGlobal"], bgp_neighbors_json[peer]["nexthopLocal"]
     )
 
 
