@@ -146,6 +146,62 @@ class OspfCommands():
     @click.group(help='Show OSPFv3 information')
     def ospf():
         pass
+    
+    
+    @click.command(help='Show OSPFv3 brief neighbor information')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-n', '--neighbor', default='', help='Show specific neighbor')
+    @click.pass_obj
+    def _brief(switch, json, neighbor):
+        if json:
+            if neighbor != '':
+                ospf.get_ospf_neighbors_brief_specific_neighbor_in_json(switch.switch, neighbor)
+            else:
+                ospf.get_ospf_neighbors_brief_in_json(switch.switch)
+        else:
+            if neighbor != '':
+                ospf.get_ospf_neighbors_brief_specific_neighbor(switch.switch, neighbor)
+            else:
+                ospf.get_ospf_neighbors_brief(switch.switch)
+            
+            
+    @click.command(help='Show OSPFv3 detailed neighbor information')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-n', '--neighbor', default='', help='Show specific neighbor')
+    @click.pass_obj
+    def _detail(switch, json, neighbor):
+        if json:
+            if neighbor != '':
+                ospf.get_ospf_neighbors_detail_specific_neighbor_in_json(switch.switch, neighbor)
+            else:
+                ospf.get_ospf_neighbors_detail_in_json(switch.switch)
+        else:
+            if neighbor != '':
+                ospf.get_ospf_neighbors_detail_specific_neighbor(switch.switch, neighbor)
+            else:
+                ospf.get_ospf_neighbors_detail(switch.switch)
+    
+    
+    @click.command(help='Show OSPFv3 interface information')
+    @click.option('-j', '--json', is_flag=True, help='Output in JSON format')
+    @click.option('-i', '--int', default='', help='Show specific interface')
+    @click.pass_obj
+    def _interface(switch, json, int):
+        if json:
+            if int:
+                ospf.get_ospf_interfaces_specific_interface_in_json(switch.switch, int)
+            else:
+                ospf.get_ospf_interfaces_in_json(switch.switch)
+        else:
+            if int:
+                ospf.get_ospf_interfaces_specific_interface(switch.switch, int)
+            else:
+                ospf.get_ospf_interfaces(switch.switch)
+                
+                
+    ospf.add_command(_brief, name='brief')
+    ospf.add_command(_detail, name='detail')
+    ospf.add_command(_interface, name='interfaces')
             
           
 class NdCommands(object):
